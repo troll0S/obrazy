@@ -1,6 +1,6 @@
 import cv2
 import os
-from tkinter import filedialog
+from tkinter import filedialog, Tk, messagebox
 
 
 class ImageLoader:
@@ -30,6 +30,8 @@ class ImageLoader:
         else:
             print("Nie wybrano plików.")
             return []
+
+
 
     def get_images(self):
         return self.images
