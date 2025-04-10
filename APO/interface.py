@@ -27,7 +27,23 @@ class Interface(tk.Tk):
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.quit)
 
+        histogram_menu = tk.Menu(menubar,tearoff=0)
+        histogram_menu.add_command(label="show")
+        histogram_menu.add_command(label="show LUT table")
+        histogram_menu.add_command(label="normalize")
+        histogram_menu.add_command(label="equalize")
+
+        image_menu = tk.Menu(menubar,tearoff=0)
+        image_menu.add_command(label="RGB 2 Gray")
+        image_menu.add_command(label="RGB 2 3x Gray")
+        image_menu.add_command(label="RGB 2 HSV")
+        image_menu.add_command(label="RGB 2 Lab")
+
+
         menubar.add_cascade(label="File", menu=file_menu)
+        menubar.add_cascade(label="Histogram", menu=histogram_menu)
+        menubar.add_cascade(label="Image", menu=image_menu)
+
 
         self.config(menu=menubar)
 
@@ -79,6 +95,8 @@ class ImageWindow(tk.Toplevel):
         self.bind("<FocusIn>", self.on_focus)
 
         self.display_image()
+        self.zoom_level = 1.0
+        self.create_window_menu()
 
     def on_focus(self, event):
         self.master.set_active_window(self)
@@ -88,3 +106,33 @@ class ImageWindow(tk.Toplevel):
         if img is not None:
             self.tk_img = ImageTk.PhotoImage(img)
             self.img_label.config(image=self.tk_img)
+
+    def create_window_menu(self):
+        menu = tk.Menu(self)
+        view_menu = tk.Menu(menu, tearoff=0)
+
+        view_menu.add_command(label="Zoom In", command=self.zoom_in)
+        view_menu.add_command(label="Zoom Out", command=self.zoom_out)
+        view_menu.add_separator()
+        view_menu.add_command(label="Reset Zoom", command=self.reset_zoom)
+
+        menu.add_cascade(label="View", menu=view_menu)
+        self.config(menu=menu)
+
+
+
+    def zoom_in(self):
+        self.zoom_level*=2
+        self.apply_zoom()
+
+    def zoom_out(self):
+        self.zoom_level*=0.5
+        self.apply_zoom()
+
+    def reset_zoom(self):
+        self.zoom_level = 1
+        self.apply_zoom()
+
+    def apply_zoom(self):
+        self.manager.resize_current(self.zoom_level)
+        self.display_image()
