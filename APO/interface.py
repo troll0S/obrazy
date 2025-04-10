@@ -34,7 +34,7 @@ class Interface(tk.Tk):
         histogram_menu.add_command(label="equalize")
 
         image_menu = tk.Menu(menubar,tearoff=0)
-        image_menu.add_command(label="RGB 2 Gray")
+        image_menu.add_command(label="RGB 2 Gray", command=self.rgb_to_gray)
         image_menu.add_command(label="RGB 2 3x Gray")
         image_menu.add_command(label="RGB 2 HSV")
         image_menu.add_command(label="RGB 2 Lab")
@@ -81,6 +81,14 @@ class Interface(tk.Tk):
                 messagebox.showinfo("Sukces", f"Obraz zapisany jako: {os.path.basename(file_path)}")
             else:
                 messagebox.showerror("Błąd", "Nie udało się zapisać obrazu.")
+
+    def rgb_to_gray(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+
+        self.active_window.manager.rgb_to_gray()
+        self.active_window.display_image()
 
 class ImageWindow(tk.Toplevel):
     def __init__(self, master, path):

@@ -8,6 +8,7 @@ class ImageManager:
         self.current = None
         self._is_grayscale = False
 
+
     def load_image(self, path):
         self.original = cv2.imread(path)
         self.current = self.original.copy()
@@ -16,8 +17,12 @@ class ImageManager:
     def get_display_image(self):
         if self.current is None:
             return None
-        bgr = cv2.cvtColor(self.current, cv2.COLOR_BGR2RGB)
-        pil_img = Image.fromarray(bgr)
+
+        if len(self.current.shape) == 2:  # Obraz jest w skali szarości
+            pil_img = Image.fromarray(self.current)
+        else:
+            bgr = cv2.cvtColor(self.current, cv2.COLOR_BGR2RGB)
+            pil_img = Image.fromarray(bgr)
         return pil_img
 
     def save_image(self, path):
@@ -30,7 +35,7 @@ class ImageManager:
             return
         height, width = self.original.shape[:2]
         new_size = (int(width*scale),int(height*scale))
-        self.current = cv2.resize(self.original,new_size,interpolation=cv2.INTER_LINEAR)
+        self.current = cv2.resize(self.current,new_size,interpolation=cv2.INTER_LINEAR)
 
     def _detect_grayscale(self, img, tolerance=0):
         if self.current is None:
@@ -45,3 +50,21 @@ class ImageManager:
 
     def is_grayscale(self):
         return self._is_grayscale
+
+    def rgb_to_gray(self):
+        if self.current is None:
+            return
+
+        gray = cv2.cvtColor(self.current, cv2.COLOR_BGR2GRAY)
+        self.current = gray
+        self._is_grayscale = True
+
+
+    def rgb_to_3x_gray(self):
+        pass
+
+    def rgb_to_HSV(self):
+        pass
+
+    def rgb_to_lab(self):
+        pass
