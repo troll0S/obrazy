@@ -1,7 +1,6 @@
-import tkinter as tk
-from interface import ImageLoaderApp
+
+from interface import Interface
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = ImageLoaderApp(root)
-    root.mainloop()
+    app = Interface()
+    app.mainloop()

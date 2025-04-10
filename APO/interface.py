@@ -1,76 +1,90 @@
 import tkinter as tk
-from ImageLoader import ImageLoader
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
+from PIL import Image, ImageTk
 import cv2
-class ImageLoaderApp:
-    def __init__(self, master):
-        self.master = master
-        master.title("APO app")
-        master.geometry("300x100")
+from image_manager import ImageManager
+from tkinter import messagebox
+import os
 
 
-        menubar = tk.Menu(master)
-        master.config(menu=menubar)
+class Interface(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Aplikacja do przetwarzania obrazów")
+        self.geometry("300x150")
+
+        self.create_menubar()
+
+        self.windows = []
+        self.active_window = None
+
+    def create_menubar(self):
+        menubar = tk.Menu(self)
 
         file_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Plik", menu=file_menu)
-        file_menu.add_command(label="Otwórz", command=self.load_images)
-        file_menu.add_command(label="Duplikuj", command=self.duplicate_image)
-        #file_menu.add_command(label="Zapisz", command=self.save_image) #Nie działa
-        file_menu.add_command(label="RGB to Grey") #Dodać implementacje
-        file_menu.add_command(label="Transform to mono chrom") #Dodać implementacje
-        file_menu.add_command(label="Zamknij", command=self.close_app)
-        file_menu.add_command(label="O autorze", command=self.show_about)
+        file_menu.add_command(label="Load Image", command=self.load_image)
+        file_menu.add_command(label="Save Active Image", command=self.save_active_image)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.quit)
 
-        histogram_menu = tk.Menu(menubar,tearoff=0)
-        menubar.add_cascade(label="histogram", menu=histogram_menu)
-        histogram_menu.add_command(label="Pokaż")
-        histogram_menu.add_command(label="Pokaż tablicę LUT")
-        histogram_menu.add_command(label="Rozciąganie")
-        histogram_menu.add_command(label="Egualizacja")
+        menubar.add_cascade(label="File", menu=file_menu)
 
-        jednopunkt_menu = tk.Menu(menubar,tearoff=0)
-        menubar.add_cascade(label="operacje jednopunktowe", menu=jednopunkt_menu)
-        jednopunkt_menu.add_command(label="rozciąganie selektywne")
-        jednopunkt_menu.add_command(label="negacja")
+        self.config(menu=menubar)
 
+    def load_image(self):
+        path = filedialog.askopenfilename(
+            filetypes=[("Obrazy", "*.jpg *.png *.bmp *.jpeg")]
+        )
+        if path:
+            image_win = ImageWindow(self, path)
+            self.windows.append(image_win)
+            self.set_active_window(image_win)
 
-    def load_images(self):
-        # Tworzymy instancję klasy ImageLoader
-        loader = ImageLoader()
-        loader.load_images()
+    def set_active_window(self, window):
+        self.active_window = window
+        self.title(f"Menadżer obrazów - aktywne: {window.title()}")
 
-    def save_image(self):
-        if not self.loaded_images:
-            messagebox.showwarning("Brak obrazu", "Nie wczytano obrazu do zapisania.")
+    def display_image(self):
+        img = self.image_manager.get_display_image()
+        if img is not None:
+            self.tk_img = ImageTk.PhotoImage(img)
+            self.image_label.config(image=self.tk_img)
+
+    def save_active_image(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
             return
 
-        # Okno dialogowe do wyboru lokalizacji zapisu
         file_path = filedialog.asksaveasfilename(
-            title="Zapisz obraz",
-            filetypes=[("Pliki graficzne", "*.jpg *.jpeg *.png *.bmp *.tiff *.webp")],
-            defaultextension=".png"
+            defaultextension=".png",
+            filetypes=[("PNG", "*.png"), ("JPEG", "*.jpg"), ("BMP", "*.bmp")],
         )
-
         if file_path:
-            try:
+            success = self.active_window.manager.save_image(file_path)
+            if success:
+                messagebox.showinfo("Sukces", f"Obraz zapisany jako: {os.path.basename(file_path)}")
+            else:
+                messagebox.showerror("Błąd", "Nie udało się zapisać obrazu.")
 
-                cv2.imwrite(file_path, self.loaded_images[0])
-                messagebox.showinfo("Sukces", "Obraz został zapisany.")
-            except Exception as e:
-                messagebox.showerror("Błąd", f"Nie udało się zapisać obrazu: {e}")
-        else:
-            print("Zapisanie obrazu zostało anulowane.")
-    def duplicate_image(self):
-       pass
+class ImageWindow(tk.Toplevel):
+    def __init__(self, master, path):
+        super().__init__(master)
+        self.title(path.split("/")[-1])
+        self.manager = ImageManager()
+        self.manager.load_image(path)
 
+        self.img_label = tk.Label(self)
+        self.img_label.pack()
 
-    def close_app(self):
-        self.master.quit()
+        self.bind("<FocusIn>", self.on_focus)
 
-    def show_about(self):
-        tk.messagebox.showinfo("O autorze", "Autor: Jan Kowalski \nProwadzący: dr inż. Łukasz Roszkowiak\nAlgorytmy Przetwarzania Obrazów 2025 \nWIT grupa ID: IO1")
+        self.display_image()
 
+    def on_focus(self, event):
+        self.master.set_active_window(self)
 
-if __name__ == "__main__":
-    pass
+    def display_image(self):
+        img = self.manager.get_display_image()
+        if img is not None:
+            self.tk_img = ImageTk.PhotoImage(img)
+            self.img_label.config(image=self.tk_img)
