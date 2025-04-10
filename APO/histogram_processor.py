@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+import cv2
+import numpy as np
 class HistogramProcessor:
     def __init__(self, image):
         self.image = image

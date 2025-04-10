@@ -5,7 +5,7 @@ import cv2
 from image_manager import ImageManager
 from tkinter import messagebox
 import os
-
+from histogram_processor import HistogramProcessor
 
 class Interface(tk.Tk):
     def __init__(self):
@@ -35,9 +35,9 @@ class Interface(tk.Tk):
 
         image_menu = tk.Menu(menubar,tearoff=0)
         image_menu.add_command(label="RGB 2 Gray", command=self.rgb_to_gray)
-        image_menu.add_command(label="RGB 2 3x Gray")
-        image_menu.add_command(label="RGB 2 HSV")
-        image_menu.add_command(label="RGB 2 Lab")
+        image_menu.add_command(label="RGB 2 3x Gray", command=self.rgb_to_3x_gray)
+        image_menu.add_command(label="RGB 2 HSV", command=self.rgb_to_HSV)
+        image_menu.add_command(label="RGB 2 Lab", command=self.rgb_to_lab)
 
 
         menubar.add_cascade(label="File", menu=file_menu)
@@ -61,7 +61,7 @@ class Interface(tk.Tk):
         self.title(f"Menadżer obrazów - aktywne: {window.title()}")
 
     def display_image(self):
-        img = self.image_manager.get_display_image()
+        img = self.active_window.image_manager.get_display_image()
         if img is not None:
             self.tk_img = ImageTk.PhotoImage(img)
             self.image_label.config(image=self.tk_img)
@@ -88,6 +88,43 @@ class Interface(tk.Tk):
             return
 
         self.active_window.manager.rgb_to_gray()
+        self.active_window.display_image()
+
+    def rgb_to_3x_gray(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        gray_images = self.active_window.manager.split_rgb_to_grays()
+        if gray_images is None:
+            messagebox.showwarning("Błąd", "Niepoprawny obraz.")
+            return
+
+        channel_names = ["Blue", "Green", "Red"]
+
+        for i, img in enumerate(gray_images):
+            window = tk.Toplevel(self)
+            window.title(f"{channel_names[i]} channel as gray")
+
+            display_img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+            pil_img = Image.fromarray(display_img)
+            tk_img = ImageTk.PhotoImage(pil_img)
+
+            label = tk.Label(window, image=tk_img)
+            label.image = tk_img
+            label.pack()
+
+    def rgb_to_HSV(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        self.active_window.manager.rgb_to_HSV()
+        self.active_window.display_image()
+
+    def rgb_to_lab(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        self.active_window.manager.rgb_to_lab()
         self.active_window.display_image()
 
 class ImageWindow(tk.Toplevel):

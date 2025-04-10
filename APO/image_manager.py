@@ -60,11 +60,27 @@ class ImageManager:
         self._is_grayscale = True
 
 
-    def rgb_to_3x_gray(self):
-        pass
+    def split_rgb_to_grays(self):
+        if self.current is None or self.is_grayscale() or self.is_rgb():
+            return None
+        b, g, r = cv2.split(self.current)
+        return [b, g, r]
 
     def rgb_to_HSV(self):
-        pass
+        if self.current is None or self.is_grayscale() or self.is_rgb():
+            return
+        hsv = cv2.cvtColor(self.current,cv2.COLOR_RGB2HSV)
+        self.current = hsv
+
+
 
     def rgb_to_lab(self):
-        pass
+        if self.current is None or self.is_grayscale() or self.is_rgb():
+            return
+        lab = cv2.cvtColor(self.current,cv2.COLOR_RGB2LAB)
+        self.current = lab
+
+    def is_rgb(self):
+        if self.current is None:
+            return False
+        return (len(self.current.shape) == 3 and self.current.shape[2] == 3)
