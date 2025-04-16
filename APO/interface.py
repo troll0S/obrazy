@@ -5,7 +5,7 @@ import cv2
 from image_manager import ImageManager
 from tkinter import messagebox
 import os
-from histogram_processor import HistogramProcessor
+
 
 class Interface(tk.Tk):
     def __init__(self):
@@ -28,7 +28,7 @@ class Interface(tk.Tk):
         file_menu.add_command(label="Exit", command=self.quit)
 
         histogram_menu = tk.Menu(menubar,tearoff=0)
-        histogram_menu.add_command(label="show")
+        histogram_menu.add_command(label="show",command=self.show_histogram)
         histogram_menu.add_command(label="show LUT table")
         histogram_menu.add_command(label="normalize")
         histogram_menu.add_command(label="equalize")
@@ -117,6 +117,9 @@ class Interface(tk.Tk):
         if self.active_window is None:
             messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
             return
+        if not self.active_window.manager.is_rgb():
+            messagebox.showwarning("Błąd konwersji", "Obraz nie jest w formacie RGB. Konwersja do HSV niemożliwa.")
+            return
         self.active_window.manager.rgb_to_HSV()
         self.active_window.display_image()
 
@@ -124,8 +127,17 @@ class Interface(tk.Tk):
         if self.active_window is None:
             messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
             return
+        if not self.active_window.manager.is_rgb():
+            messagebox.showwarning("Błąd konwersji", "Obraz nie jest w formacie RGB. Konwersja do LAB niemożliwa.")
+            return
         self.active_window.manager.rgb_to_lab()
         self.active_window.display_image()
+
+    def show_histogram(self):
+        if not self.active_window.manager.is_grayscale():
+            messagebox.showinfo("Błąd", "Histogram można wyświetlić tylko dla obrazów w skali szarości.")
+            return
+        self.active_window.manager.draw_histogram()
 
 class ImageWindow(tk.Toplevel):
     def __init__(self, master, path):
