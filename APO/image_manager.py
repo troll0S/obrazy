@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
 
+
 class ImageManager:
     def __init__(self):
         self.original = None
@@ -12,12 +13,10 @@ class ImageManager:
         self.hist_window = None
         self.hist_fig = None
 
-
     def load_image(self, path):
         self.original = cv2.imread(path)
         self.current = self.original.copy()
         self._is_grayscale = self._detect_grayscale(self.current)
-
 
     def get_display_image(self):
         if self.current is None:
@@ -39,17 +38,17 @@ class ImageManager:
         if self.original is None:
             return
         height, width = self.original.shape[:2]
-        new_size = (int(width*scale),int(height*scale))
-        self.current = cv2.resize(self.current,new_size,interpolation=cv2.INTER_LINEAR)
+        new_size = (int(width * scale), int(height * scale))
+        self.current = cv2.resize(self.current, new_size, interpolation=cv2.INTER_LINEAR)
 
     def _detect_grayscale(self, img, tolerance=0):
         if self.current is None:
             return False
         if len(self.current.shape) < 3 or self.current.shape[2] == 1:
             return True
-        b,g,r = cv2.split(self.current)
-        diff1 = cv2.absdiff(b,g)
-        diff2 = cv2.absdiff(b,r)
+        b, g, r = cv2.split(self.current)
+        diff1 = cv2.absdiff(b, g)
+        diff2 = cv2.absdiff(b, r)
 
         return np.max(diff1) <= tolerance and np.max(diff2) <= tolerance
 
@@ -65,7 +64,6 @@ class ImageManager:
         self.current = gray
         self._is_grayscale = True
 
-
     def split_rgb_to_grays(self):
         if self.current is None or self.is_grayscale() or self.is_rgb():
             return None
@@ -75,15 +73,13 @@ class ImageManager:
     def rgb_to_HSV(self):
         if self.current is None or self.is_grayscale() or self.is_rgb():
             return
-        hsv = cv2.cvtColor(self.current,cv2.COLOR_RGB2HSV)
+        hsv = cv2.cvtColor(self.current, cv2.COLOR_RGB2HSV)
         self.current = hsv
-
-
 
     def rgb_to_lab(self):
         if self.current is None or self.is_grayscale() or self.is_rgb():
             return
-        lab = cv2.cvtColor(self.current,cv2.COLOR_RGB2LAB)
+        lab = cv2.cvtColor(self.current, cv2.COLOR_RGB2LAB)
         self.current = lab
 
     def is_rgb(self):
@@ -119,7 +115,6 @@ class ImageManager:
 
         self.hist_fig.canvas.mpl_connect('close_event', on_close)
         plt.show(block=False)
-
 
     def show_LUT_table(self):
         pass

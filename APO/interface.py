@@ -27,23 +27,21 @@ class Interface(tk.Tk):
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.quit)
 
-        histogram_menu = tk.Menu(menubar,tearoff=0)
-        histogram_menu.add_command(label="show",command=self.show_histogram)
+        histogram_menu = tk.Menu(menubar, tearoff=0)
+        histogram_menu.add_command(label="show", command=self.show_histogram)
         histogram_menu.add_command(label="show LUT table")
         histogram_menu.add_command(label="normalize")
         histogram_menu.add_command(label="equalize")
 
-        image_menu = tk.Menu(menubar,tearoff=0)
+        image_menu = tk.Menu(menubar, tearoff=0)
         image_menu.add_command(label="RGB 2 Gray", command=self.rgb_to_gray)
         image_menu.add_command(label="RGB 2 3x Gray", command=self.rgb_to_3x_gray)
         image_menu.add_command(label="RGB 2 HSV", command=self.rgb_to_HSV)
         image_menu.add_command(label="RGB 2 Lab", command=self.rgb_to_lab)
 
-
         menubar.add_cascade(label="File", menu=file_menu)
         menubar.add_cascade(label="Histogram", menu=histogram_menu)
         menubar.add_cascade(label="Image", menu=image_menu)
-
 
         self.config(menu=menubar)
 
@@ -139,6 +137,7 @@ class Interface(tk.Tk):
             return
         self.active_window.manager.draw_histogram()
 
+
 class ImageWindow(tk.Toplevel):
     def __init__(self, master, path):
         super().__init__(master)
@@ -176,14 +175,12 @@ class ImageWindow(tk.Toplevel):
         menu.add_cascade(label="View", menu=view_menu)
         self.config(menu=menu)
 
-
-
     def zoom_in(self):
-        self.zoom_level*=2
+        self.zoom_level *= 2
         self.apply_zoom()
 
     def zoom_out(self):
-        self.zoom_level*=0.5
+        self.zoom_level *= 0.5
         self.apply_zoom()
 
     def reset_zoom(self):
