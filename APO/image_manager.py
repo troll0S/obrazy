@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
-
+from pathlib import Path
 
 class ImageManager:
     def __init__(self):
@@ -12,11 +12,15 @@ class ImageManager:
         self.histogram_shown = False
         self.hist_window = None
         self.hist_fig = None
+        self.filename = None
+        self.lut_table = None
+        self.lut_window = object()
 
     def load_image(self, path):
         self.original = cv2.imread(path)
         self.current = self.original.copy()
         self._is_grayscale = self._detect_grayscale(self.current)
+        self.filename = Path(path).stem
 
     def get_display_image(self):
         if self.current is None:
@@ -93,17 +97,15 @@ class ImageManager:
         if self.hist_window:
             plt.close(self.hist_fig)
 
-        self.hist_window = plt.figure(f"Histogram_{id(self)}")
+        self.hist_window = plt.figure(f"Histogram_{self.filename}_{id(self)}")
         self.hist_fig = self.hist_window
 
         hist, bins = np.histogram(self.current.flatten(), bins=256, range=(0, 256))
         max_val = hist.max()
 
-        plt.title("Histogram obrazu szaroodcieniowego")
         plt.xlabel("Wartość piksela")
-        plt.ylabel("Liczba pikseli")
-        plt.ylim(0, max_val * 1.05)  # dynamiczne skalowanie
-        plt.plot(bins[:-1], hist, color='gray')
+        plt.ylim(0, max_val)
+        plt.bar(bins[:-1], hist, width =1, color='gray')
         plt.grid(True)
 
         self.histogram_shown = True
@@ -116,11 +118,59 @@ class ImageManager:
         self.hist_fig.canvas.mpl_connect('close_event', on_close)
         plt.show(block=False)
 
-    def show_LUT_table(self):
-        pass
+    def show_lut_table(self):
+        self.calc_lut()
+        self.lut_window = True
+        return self.lut_table
+
 
     def normalize(self):
-        pass
+        if self.current is None or not self._is_grayscale:
+            return
+        self.calc_lut()
+        min_val = np.min(np.where(self.lut_table[1] > 0))
+        max_val = np.max(np.where(self.lut_table[1] > 0))
+        if min_val == max_val:
+            return
+
+        self.lut = np.zeros(256,dtype=np.uint8)
+        for i in range(256):
+            if i < min_val:
+                self.lut[i] = 0
+            elif i > max_val:
+                self.lut[i] = 255
+            else:
+                self.lut[i] = ((i - min_val) * 255) // (max_val - min_val)
+
+        self.apply_lut(self.lut)
+        self.calc_lut()
+
 
     def equalize(self):
         pass
+
+    def negate(self):
+        lut = np.array([255 - i for i in range(256)], dtype=np.uint8)
+        self.apply_lut(lut)
+
+    def get_lut(self):
+        return self.lut_table
+
+    def is_lut_active(self):
+        return self.lut_window is not None
+
+    def is_histogram_active(self):
+        return self.histogram_shown is not False and self.hist_window is not None and self.hist_fig is not None
+
+    def apply_lut(self, lut):
+        if self.current is None or not self._is_grayscale:
+            return
+        lut = np.array(lut, dtype=np.uint8)
+        self.current = lut[self.current]
+
+    def calc_lut(self):
+        if self.current is None or not self._is_grayscale:
+            return
+        hist, _ = np.histogram(self.current.flatten(), bins=256, range=(0, 256))
+        values = np.arange(256)
+        self.lut_table = np.vstack((values, hist))

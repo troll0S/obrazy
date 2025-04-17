@@ -29,8 +29,8 @@ class Interface(tk.Tk):
 
         histogram_menu = tk.Menu(menubar, tearoff=0)
         histogram_menu.add_command(label="show", command=self.show_histogram)
-        histogram_menu.add_command(label="show LUT table")
-        histogram_menu.add_command(label="normalize")
+        histogram_menu.add_command(label="show LUT table", command=self.show_lut_table)
+        histogram_menu.add_command(label="normalize", command=self.normalize)
         histogram_menu.add_command(label="equalize")
 
         image_menu = tk.Menu(menubar, tearoff=0)
@@ -132,11 +132,69 @@ class Interface(tk.Tk):
         self.active_window.display_image()
 
     def show_histogram(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
         if not self.active_window.manager.is_grayscale():
             messagebox.showinfo("Błąd", "Histogram można wyświetlić tylko dla obrazów w skali szarości.")
             return
         self.active_window.manager.draw_histogram()
 
+    def show_lut_table(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        if not self.active_window.manager.is_grayscale():
+            messagebox.showinfo("Błąd", "Histogram można wyświetlić tylko dla obrazów w skali szarości.")
+            return
+
+        result = self.active_window.manager.show_lut_table()
+        if result is None:
+            messagebox.showerror("Błąd", "Nie udało się utworzyć tabeli LUT.")
+            return
+
+        values,hist = result
+
+        lut_window = tk.Toplevel(self)
+        lut_window.title("LUT Table")
+
+        canvas = tk.Canvas(lut_window)
+        scrollbar = tk.Scrollbar(lut_window, orient="horizontal", command=canvas.xview)
+        frame = tk.Frame(canvas)
+
+        frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=frame, anchor="nw")
+        canvas.configure(xscrollcommand=scrollbar.set)
+
+
+        tk.Label(frame, text="Wartość", font=("Arial", 10, "bold")).grid(row=0, column=0, padx=5)
+        tk.Label(frame, text="Liczba", font=("Arial", 10, "bold")).grid(row=1, column=0, padx=5)
+
+        for i in range(256):
+            tk.Label(frame, text=str(values[i])).grid(row=0, column=i + 1, padx=1)
+            tk.Label(frame, text=str(hist[i])).grid(row=1, column=i + 1, padx=1)
+
+        canvas.pack(fill="both", expand=True)
+        scrollbar.pack(fill="x")
+
+    def normalize(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        if not self.active_window.manager.is_grayscale():
+            messagebox.showwarning("Błąd", "Normalizacja dostępna tylko dla obrazów w skali szarości.")
+            return
+        self.active_window.manager.normalize()
+        self.show_lut_table()
+        self.show_histogram()
+        self.active_window.display_image()
+
+    def equalize(self):
+        self.active_window.manager.equalize()
+        if self.active_window.manager.get_lut is not None:
+            self.show_lut_table()
+        if self.active_window.manager.is_histogram_active is True:
+            self.show_histogram()
 
 class ImageWindow(tk.Toplevel):
     def __init__(self, master, path):
