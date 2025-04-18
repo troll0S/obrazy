@@ -5,6 +5,7 @@ import cv2
 from image_manager import ImageManager
 from tkinter import messagebox
 import os
+import matplotlib.pyplot as plt
 
 
 class Interface(tk.Tk):
@@ -31,7 +32,7 @@ class Interface(tk.Tk):
         histogram_menu.add_command(label="show", command=self.show_histogram)
         histogram_menu.add_command(label="show LUT table", command=self.show_lut_table)
         histogram_menu.add_command(label="normalize", command=self.normalize)
-        histogram_menu.add_command(label="equalize")
+        histogram_menu.add_command(label="equalize", command=self.equalize)
 
         image_menu = tk.Menu(menubar, tearoff=0)
         image_menu.add_command(label="RGB 2 Gray", command=self.rgb_to_gray)
@@ -39,9 +40,14 @@ class Interface(tk.Tk):
         image_menu.add_command(label="RGB 2 HSV", command=self.rgb_to_HSV)
         image_menu.add_command(label="RGB 2 Lab", command=self.rgb_to_lab)
 
+        one_point_menu = tk.Menu(menubar,tearoff=0)
+        one_point_menu.add_command(label="negate",command=self.negate)
+
+
         menubar.add_cascade(label="File", menu=file_menu)
         menubar.add_cascade(label="Histogram", menu=histogram_menu)
         menubar.add_cascade(label="Image", menu=image_menu)
+        menubar.add_cascade(label="One Point Operations",menu=one_point_menu)
 
         self.config(menu=menubar)
 
@@ -138,7 +144,30 @@ class Interface(tk.Tk):
         if not self.active_window.manager.is_grayscale():
             messagebox.showinfo("Błąd", "Histogram można wyświetlić tylko dla obrazów w skali szarości.")
             return
-        self.active_window.manager.draw_histogram()
+        hist, bins = self.active_window.manager.get_histogram_data()
+        if hist is None or bins is None:
+            messagebox.showerror("Błąd", "Nie udało się wyliczyć histogramu.")
+            return
+
+        fig = plt.figure(f"Histogram_{id(self.active_window)}")
+        max_val = hist.max()
+
+        plt.xlabel("Wartość piksela")
+        plt.ylim(0, max_val)
+        plt.bar(bins[:-1], hist, width=1, color='gray')
+        plt.grid(True)
+
+        def on_close(event):
+            self.active_window.manager.hist_window = None
+            self.active_window.manager.hist_fig = None
+            self.active_window.manager.histogram_shown = False
+
+        self.active_window.manager.hist_window = fig
+        self.active_window.manager.hist_fig = fig
+        self.active_window.manager.histogram_shown = True
+
+        fig.canvas.mpl_connect('close_event', on_close)
+        plt.show(block=False)
 
     def show_lut_table(self):
         if self.active_window is None:
@@ -150,13 +179,16 @@ class Interface(tk.Tk):
 
         result = self.active_window.manager.show_lut_table()
         if result is None:
-            messagebox.showerror("Błąd", "Nie udało się utworzyć tabeli LUT.")
-            return
+            result = self.active_window.manager.get_lut()
+            if result is None:
+                messagebox.showerror("Błąd", "Nie udało się pobrać danych LUT.")
+                return
 
         values,hist = result
 
         lut_window = tk.Toplevel(self)
         lut_window.title("LUT Table")
+        self.active_window.manager.lut_window = lut_window
 
         canvas = tk.Canvas(lut_window)
         scrollbar = tk.Scrollbar(lut_window, orient="horizontal", command=canvas.xview)
@@ -185,16 +217,38 @@ class Interface(tk.Tk):
             messagebox.showwarning("Błąd", "Normalizacja dostępna tylko dla obrazów w skali szarości.")
             return
         self.active_window.manager.normalize()
-        self.show_lut_table()
-        self.show_histogram()
+        self.update_lut_and_histogram()
         self.active_window.display_image()
 
     def equalize(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        if not self.active_window.manager.is_grayscale():
+            messagebox.showwarning("Błąd", "Normalizacja dostępna tylko dla obrazów w skali szarości.")
+            return
         self.active_window.manager.equalize()
-        if self.active_window.manager.get_lut is not None:
-            self.show_lut_table()
-        if self.active_window.manager.is_histogram_active is True:
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def negate(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        if not self.active_window.manager.is_grayscale():
+            messagebox.showwarning("Błąd", "Normalizacja dostępna tylko dla obrazów w skali szarości.")
+            return
+        self.active_window.manager.negate()
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def update_lut_and_histogram(self):
+        if self.active_window is None:
+            return
+        if self.active_window.manager.is_histogram_active():
             self.show_histogram()
+        if self.active_window.manager.is_lut_active():
+            self.show_lut_table()
 
 class ImageWindow(tk.Toplevel):
     def __init__(self, master, path):

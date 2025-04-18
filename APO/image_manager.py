@@ -14,7 +14,7 @@ class ImageManager:
         self.hist_fig = None
         self.filename = None
         self.lut_table = None
-        self.lut_window = object()
+        self.lut_window = None
 
     def load_image(self, path):
         self.original = cv2.imread(path)
@@ -118,9 +118,18 @@ class ImageManager:
         self.hist_fig.canvas.mpl_connect('close_event', on_close)
         plt.show(block=False)
 
+    def get_histogram_data(self):
+        if self.current is None or not self._is_grayscale:
+            return None, None
+        hist, bins = np.histogram(self.current.flatten(), bins=256, range=(0, 256))
+        return hist, bins
+
     def show_lut_table(self):
         self.calc_lut()
-        self.lut_window = True
+        if self.lut_window is not None and self.lut_window.winfo_exists():
+            self.lut_window.destroy()
+            self.lut_table = None
+            self.calc_lut()
         return self.lut_table
 
 
@@ -147,20 +156,29 @@ class ImageManager:
 
 
     def equalize(self):
-        pass
+        if self.current is None or not self._is_grayscale:
+            return
+        self.calc_lut()
+        total_pixels = self.current.size
+        pdf = self.lut_table[1] / total_pixels
+        cdf = np.cumsum(pdf)
+        lut = np.round(cdf * 255).astype(np.uint8)
+        self.apply_lut(lut)
+        self.calc_lut()
 
     def negate(self):
         lut = np.array([255 - i for i in range(256)], dtype=np.uint8)
         self.apply_lut(lut)
+        self.calc_lut()
 
     def get_lut(self):
         return self.lut_table
 
     def is_lut_active(self):
-        return self.lut_window is not None
+        return self.lut_window is not None and self.lut_window.winfo_exists()
 
     def is_histogram_active(self):
-        return self.histogram_shown is not False and self.hist_window is not None and self.hist_fig is not None
+        return self.histogram_shown is True and self.hist_window is not None and self.hist_fig is not None
 
     def apply_lut(self, lut):
         if self.current is None or not self._is_grayscale:
@@ -174,3 +192,4 @@ class ImageManager:
         hist, _ = np.histogram(self.current.flatten(), bins=256, range=(0, 256))
         values = np.arange(256)
         self.lut_table = np.vstack((values, hist))
+
