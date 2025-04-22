@@ -171,6 +171,18 @@ class ImageManager:
         self.apply_lut(lut)
         self.calc_lut()
 
+    def posterize(self, levels=4):
+        if self.current is None or not self._is_grayscale:
+            return
+        if levels < 2 or levels > 254:
+            return
+        max_val = 255
+        min_val = 0
+        step = (max_val+1)//levels
+        indices = np.floor(self.current / step)
+        centers = (indices + 0.5) * step
+        self.current = np.clip(centers, min_val, max_val).astype(np.uint8)
+
     def get_lut(self):
         return self.lut_table
 

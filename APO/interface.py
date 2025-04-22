@@ -42,6 +42,7 @@ class Interface(tk.Tk):
 
         one_point_menu = tk.Menu(menubar,tearoff=0)
         one_point_menu.add_command(label="negate",command=self.negate)
+        one_point_menu.add_command(label="Posterize", command=self.posterize)
 
 
         menubar.add_cascade(label="File", menu=file_menu)
@@ -239,6 +240,23 @@ class Interface(tk.Tk):
             messagebox.showwarning("Błąd", "Normalizacja dostępna tylko dla obrazów w skali szarości.")
             return
         self.active_window.manager.negate()
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def posterize(self,levels = 4):
+        from tkinter import simpledialog
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        if not self.active_window.manager.is_grayscale():
+            messagebox.showwarning("Błąd", "Normalizacja dostępna tylko dla obrazów w skali szarości.")
+            return
+
+        levels = simpledialog.askinteger("Posterize", "Podaj liczbę poziomów (2–256):", minvalue=2, maxvalue=256, initialvalue=4)
+        if levels is None:
+            return
+
+        self.active_window.manager.posterize(levels)
         self.update_lut_and_histogram()
         self.active_window.display_image()
 
