@@ -12,12 +12,17 @@ class Interface(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Aplikacja do przetwarzania obrazów")
-        self.geometry("300x150")
+        self.geometry("500x150")
 
         self.create_menubar()
-
+        self.create_border_handling_options()
         self.windows = []
         self.active_window = None
+        self.border_mode_map = {
+            "replicate": cv2.BORDER_REPLICATE,
+            "reflect": cv2.BORDER_REFLECT,
+            "isolated": cv2.BORDER_ISOLATED
+        }
 
     def create_menubar(self):
         menubar = tk.Menu(self)
@@ -44,13 +49,54 @@ class Interface(tk.Tk):
         one_point_menu.add_command(label="negate",command=self.negate)
         one_point_menu.add_command(label="Posterize", command=self.posterize)
 
+        neighborhood_operations_menu = tk.Menu(menubar,tearoff=0)
+        neighborhood_operations_menu.add_command(label="blur",command=self.apply_blur)
+        neighborhood_operations_menu.add_command(label="gaussian blur",command=self.apply_goussian_blur)
+        neighborhood_operations_menu.add_command(label="Sobel", command=self.apply_sobel)
+        neighborhood_operations_menu.add_command(label="Laplacian",command=self.apply_laplacian)
+        neighborhood_operations_menu.add_command(label="Canny",command=self.apply_canny)
+        neighborhood_operations_menu.add_command(label="sharpen laplace cross",command=self.apply_sharpen_laplace_cross)
+        neighborhood_operations_menu.add_command(label="sharpen laplace full",command=self.apply_sharpen_laplace_full)
+        neighborhood_operations_menu.add_command(label="sharpen laplace extreme",command=self.apply_sharpen_laplace_extreme)
+
+        prewitt_menu = tk.Menu(neighborhood_operations_menu,tearoff=0)
+        prewitt_menu.add_command(label="n",command=self.apply_prewitt_n)
+        prewitt_menu.add_command(label="nw",command=self.apply_prewitt_nw)
+        prewitt_menu.add_command(label="w",command=self.apply_prewitt_w)
+        prewitt_menu.add_command(label="sw",command=self.apply_prewitt_sw)
+        prewitt_menu.add_command(label="s",command=self.apply_prewitt_s)
+        prewitt_menu.add_command(label="se",command=self.apply_prewitt_se)
+        prewitt_menu.add_command(label="e",command=self.apply_prewitt_e)
+        prewitt_menu.add_command(label="ne",command=self.apply_prewitt_ne)
+
+        neighborhood_operations_menu.add_cascade(label="Prewitt", menu=prewitt_menu)
+        neighborhood_operations_menu.add_command(label="interactive mask", command=self.open_interactive_mask)
+
+        median_menu = tk.Menu(neighborhood_operations_menu,tearoff=0)
+        median_menu.add_command(label="3x3",command=self.apply_median_3x3)
+        median_menu.add_command(label="5x5",command=self.apply_median_5x5)
+        median_menu.add_command(label="7x7",command=self.apply_median_7x7)
+        neighborhood_operations_menu.add_cascade(label="median", menu=median_menu)
 
         menubar.add_cascade(label="File", menu=file_menu)
         menubar.add_cascade(label="Histogram", menu=histogram_menu)
         menubar.add_cascade(label="Image", menu=image_menu)
         menubar.add_cascade(label="One Point Operations",menu=one_point_menu)
+        menubar.add_cascade(label="Neighborhood Operations", menu=neighborhood_operations_menu)
 
         self.config(menu=menubar)
+
+    def create_border_handling_options(self):
+        border_frame = tk.Frame(self)
+        border_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
+
+        tk.Label(border_frame, text="Obsługa brzegów:").pack(side=tk.LEFT, padx=10)
+
+        self.border_mode = tk.StringVar(value="reflect")
+
+        options = ["isolated", "reflect", "replicate"]
+        border_menu = tk.OptionMenu(border_frame, self.border_mode, *options)
+        border_menu.pack(side=tk.LEFT)
 
     def load_image(self):
         path = filedialog.askopenfilename(
@@ -260,6 +306,193 @@ class Interface(tk.Tk):
         self.update_lut_and_histogram()
         self.active_window.display_image()
 
+    def apply_blur(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_blur(border_mode=mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def apply_goussian_blur(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_gaussian_blur(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+
+    def apply_sobel(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_sobel(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+
+    def apply_laplacian(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_laplacian(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def apply_canny(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_canny(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+
+    def apply_sharpen_laplace_cross(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_sharpen_laplace_cross(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def apply_sharpen_laplace_full(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_sharpen_laplace_full(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def apply_sharpen_laplace_extreme(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_sharpen_laplace_extreme(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def apply_prewitt_n(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_prewitt_n(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def apply_prewitt_nw(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_prewitt_nw(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def apply_prewitt_w(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_prewitt_w(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def apply_prewitt_sw(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_prewitt_sw(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def apply_prewitt_s(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_prewitt_s(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def apply_prewitt_se(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_prewitt_se(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def apply_prewitt_e(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_prewitt_e(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def apply_prewitt_ne(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_prewitt_ne(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def apply_median_3x3(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_median_3x3(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def apply_median_5x5(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_median_5x5(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def apply_median_7x7(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_median_7x7(border_mode)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def open_interactive_mask(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        KernelDialog(self, self.on_mask_submitted)
+
+    def on_mask_submitted(self, kernel):
+        border_mode = self.border_mode_map[self.border_mode.get()]
+        self.active_window.manager.apply_uniwersal(border_mode, kernel)
+        self.active_window.display_image()
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
     def update_lut_and_histogram(self):
         if self.active_window is None:
             return
@@ -320,3 +553,32 @@ class ImageWindow(tk.Toplevel):
     def apply_zoom(self):
         self.manager.resize_current(self.zoom_level)
         self.display_image()
+class KernelDialog(tk.Toplevel):
+    def __init__(self, parent, callback):
+        super().__init__(parent)
+        self.title("Wprowadź maskę 3x3")
+        self.entries = []
+        self.callback = callback
+
+        for i in range(3):
+            row = []
+            for j in range(3):
+                entry = tk.Entry(self, width=5, justify='center')
+                entry.grid(row=i, column=j, padx=5, pady=5)
+                entry.insert(0, "0")
+                row.append(entry)
+            self.entries.append(row)
+
+        submit_btn = tk.Button(self, text="Zastosuj", command=self.on_submit)
+        submit_btn.grid(row=3, column=0, columnspan=3, pady=10)
+
+    def on_submit(self):
+        try:
+            kernel = [
+                [float(self.entries[i][j].get()) for j in range(3)]
+                for i in range(3)
+            ]
+            self.callback(kernel)
+            self.destroy()
+        except ValueError:
+            tk.messagebox.showerror("Błąd", "Wszystkie pola muszą zawierać liczby.")
