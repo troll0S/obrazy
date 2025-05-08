@@ -4,6 +4,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+
 class ImageManager:
     def __init__(self):
         self.original = None
@@ -46,11 +47,11 @@ class ImageManager:
         self.current = cv2.resize(self.current, new_size, interpolation=cv2.INTER_LINEAR)
 
     def _detect_grayscale(self, img, tolerance=0):
-        if self.current is None:
+        if img is None:
             return False
-        if len(self.current.shape) < 3 or self.current.shape[2] == 1:
+        if len(img.shape) < 3 or img.shape[2] == 1:
             return True
-        b, g, r = cv2.split(self.current)
+        b, g, r = cv2.split(img)
         diff1 = cv2.absdiff(b, g)
         diff2 = cv2.absdiff(b, r)
 
@@ -105,7 +106,7 @@ class ImageManager:
 
         plt.xlabel("Wartość piksela")
         plt.ylim(0, max_val)
-        plt.bar(bins[:-1], hist, width =1, color='gray')
+        plt.bar(bins[:-1], hist, width=1, color='gray')
         plt.grid(True)
 
         self.histogram_shown = True
@@ -132,7 +133,6 @@ class ImageManager:
             self.calc_lut()
         return self.lut_table
 
-
     def normalize(self):
         if self.current is None or not self._is_grayscale:
             return
@@ -142,7 +142,7 @@ class ImageManager:
         if min_val == max_val:
             return
 
-        self.lut = np.zeros(256,dtype=np.uint8)
+        self.lut = np.zeros(256, dtype=np.uint8)
         for i in range(256):
             if i < min_val:
                 self.lut[i] = 0
@@ -153,7 +153,6 @@ class ImageManager:
 
         self.apply_lut(self.lut)
         self.calc_lut()
-
 
     def equalize(self):
         if self.current is None or not self._is_grayscale:
@@ -178,18 +177,17 @@ class ImageManager:
             return
         max_val = 255
         min_val = 0
-        step = (max_val+1)//levels
+        step = (max_val + 1) // levels
         indices = np.floor(self.current / step)
         centers = (indices + 0.5) * step
         self.current = np.clip(centers, min_val, max_val).astype(np.uint8)
 
-
     def apply_blur(self, border_mode):
         if self.current is None:
             return
-        self.current = cv2.blur(self.current, (3,3),border_mode)
+        self.current = cv2.blur(self.current, (3, 3), border_mode)
 
-    def apply_gaussian_blur(self,border_mode):
+    def apply_gaussian_blur(self, border_mode):
         if self.current is None:
             return
         self.current = cv2.GaussianBlur(self.current, (3, 3), 0, borderType=border_mode)
@@ -203,7 +201,7 @@ class ImageManager:
         sobel = cv2.magnitude(sobel_x, sobel_y)
         self.current = cv2.convertScaleAbs(sobel)
 
-    def apply_laplacian(self,border_mode):
+    def apply_laplacian(self, border_mode):
         if self.current is None:
             return
         laplacian = cv2.Laplacian(self.current, ddepth=cv2.CV_64F, ksize=3, borderType=border_mode)
@@ -218,72 +216,70 @@ class ImageManager:
         sobel_combined = cv2.magnitude(sobel_x, sobel_y)
         self.current = cv2.convertScaleAbs(sobel_combined)
 
-    def apply_sharpen_laplace_cross(self,border_mode):
+    def apply_sharpen_laplace_cross(self, border_mode):
         kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-        self.apply_uniwersal(border_mode,kernel)
+        self.apply_uniwersal(border_mode, kernel)
 
-    def apply_sharpen_laplace_full(self,border_mode):
+    def apply_sharpen_laplace_full(self, border_mode):
         kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
-        self.apply_uniwersal(border_mode,kernel)
+        self.apply_uniwersal(border_mode, kernel)
 
-    def apply_sharpen_laplace_extreme(self,border_mode):
+    def apply_sharpen_laplace_extreme(self, border_mode):
         kernel = np.array([[1, -2, 1], [-2, 5, -2], [1, -2, 1]])
-        self.apply_uniwersal(border_mode,kernel)
+        self.apply_uniwersal(border_mode, kernel)
 
-    def apply_prewitt_n(self,border_mode):
-        kernel = np.array([[ 1, 1, 1], [ 0, 0, 0], [-1, -1, -1]])
-        self.apply_uniwersal(border_mode,kernel)
+    def apply_prewitt_n(self, border_mode):
+        kernel = np.array([[1, 1, 1], [0, 0, 0], [-1, -1, -1]])
+        self.apply_uniwersal(border_mode, kernel)
 
-    def apply_prewitt_nw(self,border_mode):
-        kernel = np.array([[ 1, 1, 0], [ 1, 0, -1], [ 0, -1, -1]])
-        self.apply_uniwersal(border_mode,kernel)
+    def apply_prewitt_nw(self, border_mode):
+        kernel = np.array([[1, 1, 0], [1, 0, -1], [0, -1, -1]])
+        self.apply_uniwersal(border_mode, kernel)
 
-    def apply_prewitt_w(self,border_mode):
-        kernel = np.array([[ 1, 0, -1], [ 1, 0, -1], [ 1, 0, -1]])
-        self.apply_uniwersal(border_mode,kernel)
+    def apply_prewitt_w(self, border_mode):
+        kernel = np.array([[1, 0, -1], [1, 0, -1], [1, 0, -1]])
+        self.apply_uniwersal(border_mode, kernel)
 
-    def apply_prewitt_sw(self,border_mode):
-        kernel = np.array([[ 0, -1, -1], [ 1, 0, -1], [ 1, 1, 0]])
-        self.apply_uniwersal(border_mode,kernel)
+    def apply_prewitt_sw(self, border_mode):
+        kernel = np.array([[0, -1, -1], [1, 0, -1], [1, 1, 0]])
+        self.apply_uniwersal(border_mode, kernel)
 
-    def apply_prewitt_s(self,border_mode):
-        kernel = np.array([[-1, -1, -1], [ 0, 0, 0], [ 1, 1, 1]])
-        self.apply_uniwersal(border_mode,kernel)
+    def apply_prewitt_s(self, border_mode):
+        kernel = np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]])
+        self.apply_uniwersal(border_mode, kernel)
 
-    def apply_prewitt_se(self,border_mode):
-        kernel = np.array([[-1, -1, 0], [-1, 0, 1], [ 0, 1, 1]])
-        self.apply_uniwersal(border_mode,kernel)
+    def apply_prewitt_se(self, border_mode):
+        kernel = np.array([[-1, -1, 0], [-1, 0, 1], [0, 1, 1]])
+        self.apply_uniwersal(border_mode, kernel)
 
-    def apply_prewitt_e(self,border_mode):
+    def apply_prewitt_e(self, border_mode):
         kernel = np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]])
-        self.apply_uniwersal(border_mode,kernel)
+        self.apply_uniwersal(border_mode, kernel)
 
-    def apply_prewitt_ne(self,border_mode):
-        kernel = np.array([[ 0, 1, 1], [-1, 0, 1], [-1, -1, 0]])
-        self.apply_uniwersal(border_mode,kernel)
+    def apply_prewitt_ne(self, border_mode):
+        kernel = np.array([[0, 1, 1], [-1, 0, 1], [-1, -1, 0]])
+        self.apply_uniwersal(border_mode, kernel)
 
-    def apply_uniwersal(self,border_mode,kernel):
+    def apply_uniwersal(self, border_mode, kernel):
         if self.current is None or kernel is None or border_mode is None:
             return
         kernel = np.array(kernel)
         self.current = cv2.filter2D(self.current, -1, kernel, borderType=border_mode)
 
-    def apply_median_3x3(self,border_mode):
+    def apply_median_3x3(self, border_mode):
         if self.current is None or border_mode is None:
             return
         self.current = cv2.medianBlur(self.current, 3)
 
-    def apply_median_5x5(self,border_mode):
+    def apply_median_5x5(self, border_mode):
         if self.current is None or border_mode is None:
             return
         self.current = cv2.medianBlur(self.current, 5)
 
-    def apply_median_7x7(self,border_mode):
+    def apply_median_7x7(self, border_mode):
         if self.current is None or border_mode is None:
             return
         self.current = cv2.medianBlur(self.current, 7)
-
-
 
     def get_lut(self):
         return self.lut_table
@@ -307,3 +303,33 @@ class ImageManager:
         values = np.arange(256)
         self.lut_table = np.vstack((values, hist))
 
+    def apply_dual_image_operation(self, second_image_path, operation, alpha=0.5):
+        if self.current is None or not self._detect_grayscale(self.current):
+            return
+        second_image = cv2.imread(second_image_path,cv2.IMREAD_GRAYSCALE)
+
+        if second_image is None or not self._detect_grayscale(second_image):
+            return
+        self.current = cv2.cvtColor(self.current, cv2.COLOR_BGR2GRAY)
+        second_image = cv2.resize(second_image, (self.current.shape[1], self.current.shape[0]))
+        second_image = second_image.astype(self.current.dtype)
+
+        print("Current shape:", self.current.shape, self.current.dtype)
+        print("Second shape:", second_image.shape, second_image.dtype)
+
+        if operation == 'add':
+            result = cv2.add(self.current, second_image)
+        elif operation == 'subtract':
+            result = cv2.subtract(self.current, second_image)
+        elif operation == 'blend':
+            result = cv2.addWeighted(self.current, alpha, second_image, 1 - alpha, 0)
+        elif operation == 'and':
+            result = cv2.bitwise_and(self.current, second_image)
+        elif operation == 'or':
+            result = cv2.bitwise_or(self.current, second_image)
+        elif operation == 'xor':
+            result = cv2.bitwise_xor(self.current, second_image)
+        else:
+            return
+
+        self.current = result

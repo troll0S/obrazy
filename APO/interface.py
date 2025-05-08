@@ -78,11 +78,20 @@ class Interface(tk.Tk):
         median_menu.add_command(label="7x7",command=self.apply_median_7x7)
         neighborhood_operations_menu.add_cascade(label="median", menu=median_menu)
 
+        dual_operations_menu = tk.Menu(menubar, tearoff=0)
+        dual_operations_menu.add_command(label="Add", command=lambda: self.dual_image_operation("add"))
+        dual_operations_menu.add_command(label="Subtract", command=lambda: self.dual_image_operation("subtract"))
+        dual_operations_menu.add_command(label="Blend", command=lambda: self.dual_image_operation("blend"))
+        dual_operations_menu.add_command(label="Bitwise AND", command=lambda: self.dual_image_operation("and"))
+        dual_operations_menu.add_command(label="Bitwise OR", command=lambda: self.dual_image_operation("or"))
+        dual_operations_menu.add_command(label="Bitwise XOR", command=lambda: self.dual_image_operation("xor"))
+
         menubar.add_cascade(label="File", menu=file_menu)
         menubar.add_cascade(label="Histogram", menu=histogram_menu)
         menubar.add_cascade(label="Image", menu=image_menu)
         menubar.add_cascade(label="One Point Operations",menu=one_point_menu)
         menubar.add_cascade(label="Neighborhood Operations", menu=neighborhood_operations_menu)
+        menubar.add_cascade(label="Dual Image Operations", menu=dual_operations_menu)
 
         self.config(menu=menubar)
 
@@ -492,6 +501,26 @@ class Interface(tk.Tk):
         self.active_window.display_image()
         self.update_lut_and_histogram()
         self.active_window.display_image()
+
+    def dual_image_operation(self,operation):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        path = filedialog.askopenfilename(filetypes=[("Obrazy", "*.jpg *.png *.bmp *.jpeg")])
+        if not path:
+            return
+
+        alpha = 0.5
+        if operation == "blend":
+            alpha_str = tk.simpledialog.askstring("Mieszanie", "Podaj współczynnik alpha (0.0 - 1.0):", initialvalue="0.5")
+            try:
+               alpha = float(alpha_str)
+            except (ValueError, TypeError):
+                messagebox.showerror("Błąd", "Nieprawidłowa wartość alpha.")
+                return
+        self.active_window.manager.apply_dual_image_operation(path, operation, alpha)
+        self.active_window.display_image()
+        self.update_lut_and_histogram()
 
     def update_lut_and_histogram(self):
         if self.active_window is None:
