@@ -10,6 +10,7 @@ class ImageManager:
         self.original = None
         self.current = None
         self._is_grayscale = False
+        self._is_binary = False
         self.histogram_shown = False
         self.hist_window = None
         self.hist_fig = None
@@ -21,6 +22,7 @@ class ImageManager:
         self.original = cv2.imread(path)
         self.current = self.original.copy()
         self._is_grayscale = self._detect_grayscale(self.current)
+        self._is_binary = self.is_binary(self.current)
         self.filename = Path(path).stem
 
     def get_display_image(self):
@@ -59,6 +61,20 @@ class ImageManager:
 
     def is_grayscale(self):
         return self._is_grayscale
+
+    def is_binary(self, img = None):
+        if img is None:
+            img = self.current
+        if img is None:
+            return False
+
+        # Sprawdź, czy obraz ma tylko jeden kanał
+        if len(img) != 2:
+            return False
+
+        # Sprawdź, czy obraz zawiera tylko 0 i 255
+        unique_values = set(np.unique(img))
+        return unique_values.issubset({0, 255})
 
     def rgb_to_gray(self):
         if self.current is None:
@@ -333,3 +349,96 @@ class ImageManager:
             return
 
         self.current = result
+
+    def apply_morphology(self,operation,shape,border,kernel_size):
+        if self.current is None:
+            return
+        if self.is_binary(self.current) == False:
+            return
+        op_map = {
+            "Erozja": cv2.MORPH_ERODE,
+            "Dylacja": cv2.MORPH_DILATE,
+            "Otwarcie": cv2.MORPH_OPEN,
+            "Zamknięcie": cv2.MORPH_CLOSE
+        }
+
+        shape_map = {
+            "Kwadrat": cv2.MORPH_RECT,
+            "Romb": cv2.MORPH_CROSS
+        }
+
+
+
+        operation_code = op_map.get(operation)
+        shape_code = shape_map.get(shape)
+        border_code = border
+
+        if operation_code is None or shape_code is None or border_code is None:
+            return
+
+        kernel = cv2.getStructuringElement(shape_code, (kernel_size, kernel_size))
+        self.current = cv2.morphologyEx(self.current, operation_code, kernel, borderType=border_code)
+
+    def skeletonize(self,border_mode):
+        if self.current is None:
+            raise ValueError("Brak obrazu.")
+        if not self.is_binary():
+            raise ValueError("Obraz nie jest binarny (musi zawierać tylko 0 i 255).")
+
+
+        im_copy = self.current.copy()
+        im_copy[im_copy != 0] = 1
+
+        neighbors_index = [(-1, 0), (-1, 1), (0, 1), (1, 1),
+                           (1, 0), (1, -1), (0, -1), (-1, -1)]
+
+        base_patterns = [
+            np.array([[0, 0, 0],
+                      [-1, 1, -1],
+                      [1, 1, 1]]),
+            np.array([[-1, 0, 0],
+                      [1, 1, 0],
+                      [-1, 1, -1]])
+        ]
+
+        patterns = []
+        for pat in base_patterns:
+            for k in range(4):
+                rotated = np.rot90(pat, k)
+                if not any(np.array_equal(rotated, p) for p in patterns):
+                    patterns.append(rotated)
+
+        def match_pattern(region, pattern):
+            mask = pattern != -1
+            return np.array_equal(region[mask], pattern[mask])
+
+        remain = True
+        while remain:
+            remain = False
+            for j in [0,2,4,6]:
+                padded = cv2.copyMakeBorder(im_copy, 1, 1, 1, 1, border_mode, value=0)
+                temp = padded.copy()
+                rows, cols = padded.shape
+                for x in range(1, rows - 1):
+                    for y in range(1, cols - 1):
+                        if padded[x, y] != 1:
+                            continue
+
+                        dx, dy = neighbors_index[j]
+                        if padded[x + dx, y + dy] != 0:
+                            continue
+
+                        region = padded[x - 1:x + 2, y - 1:y + 2]
+                        skel = any(match_pattern(region, pat) for pat in patterns)
+
+                        if skel:
+                            temp[x, y] = 2
+                        else:
+                            temp[x, y] = 3
+                            remain = True
+
+            temp[temp == 3] = 0
+            temp[temp == 2] = 1
+            img = temp[1:-1, 1:-1].copy()
+
+        self.current = (im_copy * 255).astype(np.uint8)

@@ -6,6 +6,7 @@ from image_manager import ImageManager
 from tkinter import messagebox
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 class Interface(tk.Tk):
@@ -19,8 +20,11 @@ class Interface(tk.Tk):
         self.windows = []
         self.active_window = None
         self.border_mode_map = {
+            "constant": cv2.BORDER_CONSTANT,
             "replicate": cv2.BORDER_REPLICATE,
             "reflect": cv2.BORDER_REFLECT,
+            "reflect_101": cv2.BORDER_REFLECT_101,
+            "wrap": cv2.BORDER_WRAP,
             "isolated": cv2.BORDER_ISOLATED
         }
 
@@ -86,12 +90,17 @@ class Interface(tk.Tk):
         dual_operations_menu.add_command(label="Bitwise OR", command=lambda: self.dual_image_operation("or"))
         dual_operations_menu.add_command(label="Bitwise XOR", command=lambda: self.dual_image_operation("xor"))
 
+        morphology_menu = tk.Menu(menubar, tearoff=0)
+        morphology_menu.add_command(label="Open Morphology Settings", command=self.open_morphology_window)
+        morphology_menu.add_command(label="Szkieletyzacja", command=self.skeletonize)
+
         menubar.add_cascade(label="File", menu=file_menu)
         menubar.add_cascade(label="Histogram", menu=histogram_menu)
         menubar.add_cascade(label="Image", menu=image_menu)
         menubar.add_cascade(label="One Point Operations",menu=one_point_menu)
         menubar.add_cascade(label="Neighborhood Operations", menu=neighborhood_operations_menu)
         menubar.add_cascade(label="Dual Image Operations", menu=dual_operations_menu)
+        menubar.add_cascade(label="Morphology", menu=morphology_menu)
 
         self.config(menu=menubar)
 
@@ -103,7 +112,7 @@ class Interface(tk.Tk):
 
         self.border_mode = tk.StringVar(value="reflect")
 
-        options = ["isolated", "reflect", "replicate"]
+        options = ["constant","isolated", "reflect", "replicate","reflect_101","wrap"]
         border_menu = tk.OptionMenu(border_frame, self.border_mode, *options)
         border_menu.pack(side=tk.LEFT)
 
@@ -530,6 +539,73 @@ class Interface(tk.Tk):
         if self.active_window.manager.is_lut_active():
             self.show_lut_table()
 
+    def open_morphology_window(self):
+        window = tk.Toplevel(self)
+        window.title("Morphology Settings")
+        window.geometry("350x300")
+
+        # Lista opcji
+        operations = ["Erozja", "Dylacja", "Otwarcie", "Zamknięcie"]
+        shapes = ["Kwadrat", "Romb"]
+
+        kernel_sizes = ["3x3", "5x5", "7x7"]
+
+        # Zmienne
+        op_var = tk.StringVar(value=operations[0])
+        shape_var = tk.StringVar(value=shapes[0])
+        size_var = tk.StringVar(value=kernel_sizes[0])
+
+        # Interfejs
+        tk.Label(window, text="Rodzaj operacji:").pack(pady=5)
+        tk.OptionMenu(window, op_var, *operations).pack()
+
+        tk.Label(window, text="Element strukturalny:").pack(pady=5)
+        tk.OptionMenu(window, shape_var, *shapes).pack()
+
+
+        tk.Label(window, text="Rozmiar jądra:").pack(pady=5)
+        tk.OptionMenu(window, size_var, *kernel_sizes).pack()
+
+        tk.Button(window, text="Apply", command=lambda: self.apply_morphology(
+            op_var.get(), shape_var.get(), self.border_mode, size_var.get())).pack(pady=10)
+
+    def apply_morphology(self, operation, shape, border, kernel_size):
+        if self.active_window is None:
+            messagebox.showwarning("Brak aktywnego obrazu", "Najpierw wczytaj obraz.")
+            return
+
+        try:
+            k = int(kernel_size[0])  # np. "3x3" → 3
+
+            self.active_window.manager.apply_morphology(
+                operation=operation,
+                shape=shape,
+                border=border,
+                kernel_size=k
+            )
+            self.active_window.display_image()
+            self.update_lut_and_histogram()
+
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Wystąpił problem podczas przetwarzania:\n{e}")
+
+    def skeletonize(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Najpierw załaduj obraz.")
+            return
+
+        try:
+            if not self.active_window.manager.is_binary():
+                messagebox.showwarning("Obraz niebinarny", "Szkieletyzacja wymaga obrazu binarnego (tylko 0 i 255).")
+                return
+
+            self.active_window.manager.skeletonize(self.border_mode)
+            self.update_lut_and_histogram()
+            self.active_window.display_image()
+
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Błąd podczas szkieletyzacji:\n{e}")
+
 class ImageWindow(tk.Toplevel):
     def __init__(self, master, path):
         super().__init__(master)
@@ -545,6 +621,8 @@ class ImageWindow(tk.Toplevel):
         self.display_image()
         self.zoom_level = 1.0
         self.create_window_menu()
+
+
 
     def on_focus(self, event):
         self.master.set_active_window(self)
@@ -564,6 +642,7 @@ class ImageWindow(tk.Toplevel):
         view_menu.add_separator()
         view_menu.add_command(label="Reset Zoom", command=self.reset_zoom)
 
+
         menu.add_cascade(label="View", menu=view_menu)
         self.config(menu=menu)
 
@@ -582,6 +661,9 @@ class ImageWindow(tk.Toplevel):
     def apply_zoom(self):
         self.manager.resize_current(self.zoom_level)
         self.display_image()
+
+
+
 class KernelDialog(tk.Toplevel):
     def __init__(self, parent, callback):
         super().__init__(parent)
