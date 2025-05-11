@@ -19,6 +19,7 @@ class ImageManager:
         self.lut_table = None
         self.lut_window = None
         self.pyramid_images = None
+        self.pyramid_active = None
 
     def load_image(self, path):
         self.original = cv2.imread(path)
@@ -26,7 +27,8 @@ class ImageManager:
         self._is_grayscale = self._detect_grayscale(self.current)
         self._is_binary = self.is_binary(self.current)
         self.filename = Path(path).stem
-        self.calc_pyramids()
+        self.calc_pyramid()
+        self.pyramid_active = 2
 
     def get_display_image(self):
         if self.current is None:
@@ -57,6 +59,10 @@ class ImageManager:
         self.current = self.original.copy()
         self._is_grayscale = self._detect_grayscale(self.current)
         self._is_binary = self.is_binary(self.current)
+
+    def set_current(self,img):
+        self.current = img
+        self.calc_pyramid()
 
     def _detect_grayscale(self, img, tolerance=0):
         if img is None:
@@ -92,7 +98,7 @@ class ImageManager:
         if self._is_grayscale:
             return
         gray = cv2.cvtColor(self.current, cv2.COLOR_BGR2GRAY)
-        self.current = gray
+        self.set_current(gray)
         self._is_grayscale = True
 
     def split_rgb_to_grays(self):
@@ -105,13 +111,13 @@ class ImageManager:
         if self.current is None or self.is_grayscale() or self.is_rgb():
             return
         hsv = cv2.cvtColor(self.current, cv2.COLOR_RGB2HSV)
-        self.current = hsv
+        self.set_current(hsv)
 
     def rgb_to_lab(self):
         if self.current is None or self.is_grayscale() or self.is_rgb():
             return
         lab = cv2.cvtColor(self.current, cv2.COLOR_RGB2LAB)
-        self.current = lab
+        self.set_current(lab)
 
     def is_rgb(self):
         if self.current is None:
@@ -206,17 +212,17 @@ class ImageManager:
         step = (max_val + 1) // levels
         indices = np.floor(self.current / step)
         centers = (indices + 0.5) * step
-        self.current = np.clip(centers, min_val, max_val).astype(np.uint8)
+        self.set_current(np.clip(centers, min_val, max_val).astype(np.uint8))
 
     def apply_blur(self, border_mode):
         if self.current is None:
             return
-        self.current = cv2.blur(self.current, (3, 3), border_mode)
+        self.set_current(cv2.blur(self.current, (3, 3), border_mode))
 
     def apply_gaussian_blur(self, border_mode):
         if self.current is None:
             return
-        self.current = cv2.GaussianBlur(self.current, (3, 3), 0, borderType=border_mode)
+        self.set_current(cv2.GaussianBlur(self.current, (3, 3), 0, borderType=border_mode))
 
     def apply_sobel(self, border_mode):
         if self.current is None:
@@ -225,14 +231,14 @@ class ImageManager:
         sobel_y = cv2.Sobel(self.current, cv2.CV_64F, 0, 1, ksize=3, borderType=border_mode)
 
         sobel = cv2.magnitude(sobel_x, sobel_y)
-        self.current = cv2.convertScaleAbs(sobel)
+        self.set_current(cv2.convertScaleAbs(sobel))
 
     def apply_laplacian(self, border_mode):
         if self.current is None:
             return
         laplacian = cv2.Laplacian(self.current, ddepth=cv2.CV_64F, ksize=3, borderType=border_mode)
         laplacian = cv2.convertScaleAbs(laplacian)
-        self.current = laplacian
+        self.set_current(laplacian)
 
     def apply_canny(self, border_mode):
         if self.current is None:
@@ -240,7 +246,7 @@ class ImageManager:
         sobel_x = cv2.Sobel(self.current, cv2.CV_64F, 1, 0, ksize=3, borderType=border_mode)
         sobel_y = cv2.Sobel(self.current, cv2.CV_64F, 0, 1, ksize=3, borderType=border_mode)
         sobel_combined = cv2.magnitude(sobel_x, sobel_y)
-        self.current = cv2.convertScaleAbs(sobel_combined)
+        self.set_current(cv2.convertScaleAbs(sobel_combined))
 
     def apply_sharpen_laplace_cross(self, border_mode):
         kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
@@ -290,22 +296,22 @@ class ImageManager:
         if self.current is None or kernel is None or border_mode is None:
             return
         kernel = np.array(kernel)
-        self.current = cv2.filter2D(self.current, -1, kernel, borderType=border_mode)
+        self.set_current(cv2.filter2D(self.current, -1, kernel, borderType=border_mode))
 
     def apply_median_3x3(self, border_mode):
         if self.current is None or border_mode is None:
             return
-        self.current = cv2.medianBlur(self.current, 3)
+        self.set_current(cv2.medianBlur(self.current, 3))
 
     def apply_median_5x5(self, border_mode):
         if self.current is None or border_mode is None:
             return
-        self.current = cv2.medianBlur(self.current, 5)
+        self.set_current(cv2.medianBlur(self.current, 5))
 
     def apply_median_7x7(self, border_mode):
         if self.current is None or border_mode is None:
             return
-        self.current = cv2.medianBlur(self.current, 7)
+        self.set_current(cv2.medianBlur(self.current, 7))
 
     def get_lut(self):
         return self.lut_table
@@ -320,7 +326,7 @@ class ImageManager:
         if self.current is None or not self._is_grayscale:
             return
         lut = np.array(lut, dtype=np.uint8)
-        self.current = lut[self.current]
+        self.set_current(lut[self.current])
 
     def calc_lut(self):
         if self.current is None or not self._is_grayscale:
@@ -358,7 +364,7 @@ class ImageManager:
         else:
             return
 
-        self.current = result
+        self.set_current(result)
 
     def apply_morphology(self,operation,shape,border,kernel_size):
         if self.current is None:
@@ -387,7 +393,7 @@ class ImageManager:
             return
 
         kernel = cv2.getStructuringElement(shape_code, (kernel_size, kernel_size))
-        self.current = cv2.morphologyEx(self.current, operation_code, kernel, borderType=border_code)
+        self.set_current(cv2.morphologyEx(self.current, operation_code, kernel, borderType=border_code))
 
     def skeletonize(self,border_mode):
         if self.current is None:
@@ -451,7 +457,7 @@ class ImageManager:
             temp[temp == 2] = 1
             img = temp[1:-1, 1:-1].copy()
 
-        self.current = (im_copy * 255).astype(np.uint8)
+        self.set_current((im_copy * 255).astype(np.uint8))
 
     def hough_transformation(self):
         if self.current is None:
@@ -471,7 +477,7 @@ class ImageManager:
             pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))
 
             cv2.line(output,pt1,pt2,(0,0,255),3,cv2.LINE_AA)
-        self.current = output
+        self.set_current(output)
         self._is_grayscale = self._detect_grayscale(self.current)
         self._is_binary = self.is_binary(self.current)
 
@@ -486,3 +492,15 @@ class ImageManager:
         # Powiększenia
         self.pyramid_images[3] = cv2.pyrUp(self.pyramid_images[2])
         self.pyramid_images[4] = cv2.pyrUp(self.pyramid_images[3])
+
+    def pyramid_Up(self):
+        if self.pyramid_active < 4:
+            self.pyramid_active += 1
+            self.current = self.pyramid_images[self.pyramid_active]
+    def pyramid_Down(self):
+        if self.pyramid_active > 0:
+            self.pyramid_active -= 1
+            self.current = self.pyramid_images[self.pyramid_active]
+    def pyramid_Reset(self):
+        self.pyramid_active = 2
+        self.current = self.pyramid_images[self.pyramid_active]
