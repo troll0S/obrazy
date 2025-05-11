@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
 from pathlib import Path
+import math
 
 
 class ImageManager:
@@ -47,6 +48,13 @@ class ImageManager:
         height, width = self.original.shape[:2]
         new_size = (int(width * scale), int(height * scale))
         self.current = cv2.resize(self.current, new_size, interpolation=cv2.INTER_LINEAR)
+
+    def reset_image(self):
+        if self.original is None:
+            return
+        self.current = self.original.copy()
+        self._is_grayscale = self._detect_grayscale(self.current)
+        self._is_binary = self.is_binary(self.current)
 
     def _detect_grayscale(self, img, tolerance=0):
         if img is None:
@@ -442,3 +450,25 @@ class ImageManager:
             img = temp[1:-1, 1:-1].copy()
 
         self.current = (im_copy * 255).astype(np.uint8)
+
+    def hough_transformation(self):
+        if self.current is None:
+            return
+        if not self._detect_grayscale(self.current):
+            return
+        edges = cv2.Canny(self.current, 50, 200)
+        lines = cv2.HoughLines(edges, 1, np.pi/180, 100, None, 0, 0)
+        output = cv2.cvtColor(self.current,cv2.COLOR_GRAY2RGB)
+        for line in lines:
+            rho, theta = line[0]
+            a = math.cos(theta)
+            b = math.sin(theta)
+            x0 = a * rho
+            y0 = b * rho
+            pt1 = (int(x0 + 1000*(-b)), int(y0 + 1000*(a)))
+            pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))
+
+            cv2.line(output,pt1,pt2,(0,0,255),3,cv2.LINE_AA)
+        self.current = output
+        self._is_grayscale = self._detect_grayscale(self.current)
+        self._is_binary = self.is_binary(self.current)

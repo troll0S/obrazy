@@ -93,6 +93,8 @@ class Interface(tk.Tk):
         morphology_menu = tk.Menu(menubar, tearoff=0)
         morphology_menu.add_command(label="Open Morphology Settings", command=self.open_morphology_window)
         morphology_menu.add_command(label="Szkieletyzacja", command=self.skeletonize)
+        morphology_menu.add_command(label="Hough transformation", command=self.hough_transformation)
+
 
         menubar.add_cascade(label="File", menu=file_menu)
         menubar.add_cascade(label="Histogram", menu=histogram_menu)
@@ -100,7 +102,7 @@ class Interface(tk.Tk):
         menubar.add_cascade(label="One Point Operations",menu=one_point_menu)
         menubar.add_cascade(label="Neighborhood Operations", menu=neighborhood_operations_menu)
         menubar.add_cascade(label="Dual Image Operations", menu=dual_operations_menu)
-        menubar.add_cascade(label="Morphology", menu=morphology_menu)
+        menubar.add_cascade(label="LAB3", menu=morphology_menu)
 
         self.config(menu=menubar)
 
@@ -606,6 +608,14 @@ class Interface(tk.Tk):
         except Exception as e:
             messagebox.showerror("Błąd", f"Błąd podczas szkieletyzacji:\n{e}")
 
+    def hough_transformation(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Najpierw załaduj obraz.")
+            return
+        self.active_window.manager.hough_transformation()
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
 class ImageWindow(tk.Toplevel):
     def __init__(self, master, path):
         super().__init__(master)
@@ -641,6 +651,7 @@ class ImageWindow(tk.Toplevel):
         view_menu.add_command(label="Zoom Out", command=self.zoom_out)
         view_menu.add_separator()
         view_menu.add_command(label="Reset Zoom", command=self.reset_zoom)
+        view_menu.add_command(label="reset image", command=self.reset_image)
 
 
         menu.add_cascade(label="View", menu=view_menu)
@@ -662,7 +673,9 @@ class ImageWindow(tk.Toplevel):
         self.manager.resize_current(self.zoom_level)
         self.display_image()
 
-
+    def reset_image(self):
+        self.manager.reset_image()
+        self.display_image()
 
 class KernelDialog(tk.Toplevel):
     def __init__(self, parent, callback):
