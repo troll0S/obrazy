@@ -18,6 +18,7 @@ class ImageManager:
         self.filename = None
         self.lut_table = None
         self.lut_window = None
+        self.pyramid_images = None
 
     def load_image(self, path):
         self.original = cv2.imread(path)
@@ -25,6 +26,7 @@ class ImageManager:
         self._is_grayscale = self._detect_grayscale(self.current)
         self._is_binary = self.is_binary(self.current)
         self.filename = Path(path).stem
+        self.calc_pyramids()
 
     def get_display_image(self):
         if self.current is None:
@@ -472,3 +474,15 @@ class ImageManager:
         self.current = output
         self._is_grayscale = self._detect_grayscale(self.current)
         self._is_binary = self.is_binary(self.current)
+
+    def calc_pyramid(self):
+        self.pyramid_images = [None] * 5
+        self.pyramid_images[2] = self.current.copy()  # oryginał na środku
+
+        # Pomniejszenia
+        self.pyramid_images[1] = cv2.pyrDown(self.pyramid_images[2])
+        self.pyramid_images[0] = cv2.pyrDown(self.pyramid_images[1])
+
+        # Powiększenia
+        self.pyramid_images[3] = cv2.pyrUp(self.pyramid_images[2])
+        self.pyramid_images[4] = cv2.pyrUp(self.pyramid_images[3])

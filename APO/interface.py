@@ -631,6 +631,7 @@ class ImageWindow(tk.Toplevel):
         self.display_image()
         self.zoom_level = 1.0
         self.create_window_menu()
+        self.pyramid_level = 0
 
 
 
@@ -653,6 +654,10 @@ class ImageWindow(tk.Toplevel):
         view_menu.add_command(label="Reset Zoom", command=self.reset_zoom)
         view_menu.add_command(label="reset image", command=self.reset_image)
 
+        pyr_menu=tk.Menu(menu, tearoff=0)
+
+        pyr_menu.add_command(label="pyramid Up", command=self.pyramid_Up)
+        pyr_menu.add_command(label="pyramid Down", command=self.pyramid_Down)
 
         menu.add_cascade(label="View", menu=view_menu)
         self.config(menu=menu)
@@ -676,6 +681,23 @@ class ImageWindow(tk.Toplevel):
     def reset_image(self):
         self.manager.reset_image()
         self.display_image()
+
+    def pyramid_Up(self):
+        self.pyramid_level += 1
+        if self.pyramid_level > 2:
+            self.pyramid_level = 2
+            self.manager.pyramid_Up()
+        else:
+            messagebox.showinfo("limit piramidy", "osiągnięto limit piramidy (max 2 w góre i 2 w dół).")
+
+    def pyramid_Down(self):
+        self.pyramid_level -= 1
+        if self.pyramid_level < -2:
+            self.pyramid_level = -2
+            self.manager.Down()
+        else:
+            messagebox.showinfo("limit piramidy", "osiągnięto limit piramidy (max 2 w góre i 2 w dół).")
+
 
 class KernelDialog(tk.Toplevel):
     def __init__(self, parent, callback):
