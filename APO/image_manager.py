@@ -342,7 +342,8 @@ class ImageManager:
 
         if second_image is None or not self._detect_grayscale(second_image):
             return
-        self.current = cv2.cvtColor(self.current, cv2.COLOR_BGR2GRAY)
+        if len(self.current.shape) == 3 and self.current.shape[2] == 3:
+            self.set_current(cv2.cvtColor(self.current, cv2.COLOR_BGR2GRAY))
         second_image = cv2.resize(second_image, (self.current.shape[1], self.current.shape[0]))
         second_image = second_image.astype(self.current.dtype)
 
