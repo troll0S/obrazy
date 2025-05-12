@@ -732,13 +732,17 @@ class Interface(tk.Tk):
             return
 
         self.rect_end = (event.x, event.y)
-
+        label = self.active_window.img_label
+        label.unbind("<ButtonPress-1>")
+        label.unbind("<B1-Motion>")
+        label.unbind("<ButtonRelease-1>")
         if messagebox.askyesno("GrabCut", "Zastosować GrabCut na zaznaczonym obszarze?"):
             self.apply_grabcut()
         else:
             self.active_window.display_image()  # Przywróć oryginalny obraz
             self.rect_start = None
             self.rect_end = None
+
 
     def apply_grabcut(self):
         if not self.rect_start or not self.rect_end:
@@ -766,10 +770,25 @@ class Interface(tk.Tk):
         self.active_window.img_label.config(image=self.active_window.tk_img)
 
     def watershed(self):
-        pass
+        if self.active_window is None:
+            messagebox.showwarning("Brak obrazu", "Najpierw załaduj obraz.")
+            return
+
+        self.active_window.manager.watershed()
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
 
     def inpainting(self):
-        pass
+        if self.active_window is None:
+            messagebox.showwarning("Brak obrazu", "Najpierw załaduj obraz.")
+            return
+        path = filedialog.askopenfilename(filetypes=[("Obrazy", "*.jpg *.png *.bmp *.jpeg")])
+        if not path:
+            return
+
+        self.active_window.manager.inpainting(path)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
 
 class ImageWindow(tk.Toplevel):
     def __init__(self, master, path):

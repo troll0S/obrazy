@@ -597,7 +597,45 @@ class ImageManager:
         self.set_current(result)
 
     def watershed(self):
-        pass
+        if self.current is None:
+            raise ValueError("Brak obrazu.")
+        if not self._detect_grayscale(self.current):
+            return
+        if len(self.current.shape) == 3 and self.current.shape[2] == 3:
+            self.set_current(cv2.cvtColor(self.current, cv2.COLOR_BGR2GRAY))
+        _, thresh = cv2.threshold(self.current, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        kernel = np.ones((3, 3), np.uint8)
+        opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+        sure_bg = cv2.dilate(opening, kernel, iterations=3)
+        dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
+        _, sure_fg = cv2.threshold(dist_transform, 0.7 * dist_transform.max(), 255, 0)
+        sure_fg = np.uint8(sure_fg)
+        unknown = cv2.subtract(sure_bg,sure_fg)
+        _, markers = cv2.connectedComponents(sure_fg)
+        markers = markers+1
+        markers[unknown == 255] = 0
+        img = self.current
+        if len(img.shape) != 3 or img.shape[2] != 3:
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        markers = np.int32(markers)
+        markers = cv2.watershed(img,markers)
+        img[markers == -1] = [255,0,0]
+        self.set_current(img)
 
-    def inpainting(self):
-        pass
+
+    def inpainting(self, mask_path):
+        if self.current is None:
+            return
+        if not self._detect_grayscale(self.current):
+            return
+        mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+
+        if mask is None or not self._detect_grayscale(mask):
+            return
+        if len(self.current.shape) == 3 and self.current.shape[2] == 3:
+            self.set_current(cv2.cvtColor(self.current, cv2.COLOR_BGR2GRAY))
+        _, mask = cv2.threshold(mask, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        if mask.shape != self.current.shape:
+            return
+        result = cv2.inpaint(self.current, mask, inpaintRadius=3, flags=cv2.INPAINT_TELEA)
+        self.set_current(result)
