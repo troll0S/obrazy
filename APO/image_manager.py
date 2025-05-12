@@ -1,3 +1,5 @@
+import tkinter
+
 import cv2
 import numpy as np
 from PIL import Image
@@ -63,6 +65,8 @@ class ImageManager:
     def set_current(self,img):
         self.current = img
         self.calc_pyramid()
+        _is_grayscale = self._detect_grayscale(self.current)
+        _is_binary = self.is_binary(self.current)
 
     def _detect_grayscale(self, img, tolerance=0):
         if img is None:
@@ -78,19 +82,30 @@ class ImageManager:
     def is_grayscale(self):
         return self._is_grayscale
 
-    def is_binary(self, img = None):
+    def is_binary(self, img=None):
         if img is None:
             img = self.current
         if img is None:
             return False
 
-        # Sprawdź, czy obraz ma tylko jeden kanał
-        if len(img) != 2:
-            return False
+        # Jeśli obraz ma jeden kanał — sprawdź wartości
+        if img.ndim == 2:
+            unique_values = set(np.unique(img))
+            return unique_values.issubset({0, 255})
 
-        # Sprawdź, czy obraz zawiera tylko 0 i 255
-        unique_values = set(np.unique(img))
-        return unique_values.issubset({0, 255})
+        # Jeśli obraz ma 3 kanały (np. RGB)
+        elif img.ndim == 3 and img.shape[2] == 3:
+            # Sprawdź, czy wszystkie kanały są identyczne
+            if np.array_equal(img[:, :, 0], img[:, :, 1]) and np.array_equal(img[:, :, 1], img[:, :, 2]):
+                # Pobierz jeden kanał i sprawdź, czy ma tylko 0 i 255
+                gray = img[:, :, 0]
+                unique_values = set(np.unique(gray))
+                if unique_values.issubset({0, 255}):
+                    # Konwersja do jednego kanału
+                    self.current = gray.copy()
+                    return True
+
+        return False
 
     def rgb_to_gray(self):
         if self.current is None:
@@ -396,19 +411,20 @@ class ImageManager:
         kernel = cv2.getStructuringElement(shape_code, (kernel_size, kernel_size))
         self.set_current(cv2.morphologyEx(self.current, operation_code, kernel, borderType=border_code))
 
-    def skeletonize(self,border_mode):
+    def skeletonize(self, border_mode):
         if self.current is None:
             raise ValueError("Brak obrazu.")
         if not self.is_binary():
             raise ValueError("Obraz nie jest binarny (musi zawierać tylko 0 i 255).")
 
+        # Zamiana 255 -> 1
+        image = (self.current.copy() // 255).astype(np.uint8)
 
-        im_copy = self.current.copy()
-        im_copy[im_copy != 0] = 1
+        # Sąsiedzi w 8-kierunkowym sąsiedztwie
+        neighbors = [(-1, 0), (-1, 1), (0, 1), (1, 1),
+                     (1, 0), (1, -1), (0, -1), (-1, -1)]
 
-        neighbors_index = [(-1, 0), (-1, 1), (0, 1), (1, 1),
-                           (1, 0), (1, -1), (0, -1), (-1, -1)]
-
+        # Wzorce bazowe
         base_patterns = [
             np.array([[0, 0, 0],
                       [-1, 1, -1],
@@ -418,6 +434,7 @@ class ImageManager:
                       [-1, 1, -1]])
         ]
 
+        # Generowanie obrotów wzorców
         patterns = []
         for pat in base_patterns:
             for k in range(4):
@@ -425,6 +442,7 @@ class ImageManager:
                 if not any(np.array_equal(rotated, p) for p in patterns):
                     patterns.append(rotated)
 
+        # Dopasowanie wzorca
         def match_pattern(region, pattern):
             mask = pattern != -1
             return np.array_equal(region[mask], pattern[mask])
@@ -432,33 +450,44 @@ class ImageManager:
         remain = True
         while remain:
             remain = False
-            for j in [0,2,4,6]:
-                padded = cv2.copyMakeBorder(im_copy, 1, 1, 1, 1, border_mode, value=0)
+            for j in [0, 2, 4, 6]:
+                padded = cv2.copyMakeBorder(image, 1, 1, 1, 1, border_mode, value=0)
                 temp = padded.copy()
                 rows, cols = padded.shape
                 for x in range(1, rows - 1):
                     for y in range(1, cols - 1):
                         if padded[x, y] != 1:
                             continue
-
-                        dx, dy = neighbors_index[j]
+                        dx, dy = neighbors[j]
                         if padded[x + dx, y + dy] != 0:
                             continue
 
                         region = padded[x - 1:x + 2, y - 1:y + 2]
-                        skel = any(match_pattern(region, pat) for pat in patterns)
+
+                        skel = False
+                        for pattern in patterns:
+                            if match_pattern(region, pattern):
+                                skel = True
+                                break
 
                         if skel:
-                            temp[x, y] = 2
+                            temp[x, y] = 2  # zachowujemy jako szkielet
                         else:
-                            temp[x, y] = 3
+                            temp[x, y] = 3  # usuwamy
                             remain = True
 
-            temp[temp == 3] = 0
-            temp[temp == 2] = 1
-            img = temp[1:-1, 1:-1].copy()
+                # Aktualizacja: usuwanie i zachowywanie pikseli
+                for x in range(1, rows - 1):
+                    for y in range(1, cols - 1):
+                        if temp[x, y] == 3:
+                            temp[x, y] = 0
+                        elif temp[x, y] == 2:
+                            temp[x, y] = 1
 
-        self.set_current((im_copy * 255).astype(np.uint8))
+                image = temp[1:-1, 1:-1].copy()
+
+        self.set_current((image * 255).astype(np.uint8))
+
 
     def hough_transformation(self):
         if self.current is None:
@@ -468,16 +497,17 @@ class ImageManager:
         edges = cv2.Canny(self.current, 50, 200)
         lines = cv2.HoughLines(edges, 1, np.pi/180, 100, None, 0, 0)
         output = cv2.cvtColor(self.current,cv2.COLOR_GRAY2RGB)
-        for line in lines:
-            rho, theta = line[0]
-            a = math.cos(theta)
-            b = math.sin(theta)
-            x0 = a * rho
-            y0 = b * rho
-            pt1 = (int(x0 + 1000*(-b)), int(y0 + 1000*(a)))
-            pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))
+        if lines is not None:
+            for line in lines:
+                rho, theta = line[0]
+                a = math.cos(theta)
+                b = math.sin(theta)
+                x0 = a * rho
+                y0 = b * rho
+                pt1 = (int(x0 + 1000*(-b)), int(y0 + 1000*(a)))
+                pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))
 
-            cv2.line(output,pt1,pt2,(0,0,255),3,cv2.LINE_AA)
+                cv2.line(output,pt1,pt2,(0,0,255),3,cv2.LINE_AA)
         self.set_current(output)
         self._is_grayscale = self._detect_grayscale(self.current)
         self._is_binary = self.is_binary(self.current)
@@ -505,3 +535,49 @@ class ImageManager:
     def pyramid_Reset(self):
         self.pyramid_active = 2
         self.current = self.pyramid_images[self.pyramid_active]
+
+
+
+    def threshold_manual(self, thresh_value):
+        if self.current is None:
+            raise ValueError("Brak obrazu.")
+
+        if not self._detect_grayscale(self.current):
+            return
+        _, result_image = cv2.threshold(self.current, thresh_value, 255, cv2.THRESH_BINARY)
+        self.set_current(result_image)
+
+    def threshold_manual_reverse(self, thresh_value):
+        if self.current is None:
+            raise ValueError("Brak obrazu.")
+        if not self._detect_grayscale(self.current):
+            return
+        _, result_image = cv2.threshold(self.current, thresh_value, 255, cv2.THRESH_BINARY_INV)
+        self.set_current(result_image)
+
+    def threshold_otsu(self):
+        if self.current is None:
+            raise ValueError("Brak obrazu.")
+        if not self._detect_grayscale(self.current):
+            return
+        if self.is_binary(self.current):
+            return
+        if len(self.current.shape) == 3 and self.current.shape[2] == 3:
+            self.set_current(cv2.cvtColor(self.current, cv2.COLOR_BGR2GRAY))
+        _, result_image = cv2.threshold(self.current, 0, 255,
+                                             cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        print(self.is_binary(result_image))
+        self.set_current(result_image)
+
+
+
+    def threshold_adaptive(self, method, block_size=11, C=2):
+        if self.current is None:
+            raise ValueError("Brak obrazu.")
+        if not self._detect_grayscale(self.current):
+            return
+        if len(self.current.shape) == 3 and self.current.shape[2] == 3:
+            self.set_current(cv2.cvtColor(self.current, cv2.COLOR_BGR2GRAY))
+        result_image = cv2.adaptiveThreshold(self.current, 255, method,
+                                                  cv2.THRESH_BINARY, block_size, C)
+        self.set_current(result_image)

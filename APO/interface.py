@@ -95,6 +95,12 @@ class Interface(tk.Tk):
         morphology_menu.add_command(label="Szkieletyzacja", command=self.skeletonize)
         morphology_menu.add_command(label="Hough transformation", command=self.hough_transformation)
 
+        segmentation_menu = tk.Menu(menubar, tearoff=0)
+        segmentation_menu.add_command(label="Manual threshhold", command=self.open_manual_threshold_window)
+        segmentation_menu.add_command(label="Adaptive Threshold Mean", command=lambda: self.threshold_adaptive("mean"))
+        segmentation_menu.add_command(label="Adaptive Threshold Gaussian", command=lambda: self.threshold_adaptive("gaussian"))
+        segmentation_menu.add_command(label="Otsu Threshold", command=self.threshold_otsu)
+
 
         menubar.add_cascade(label="File", menu=file_menu)
         menubar.add_cascade(label="Histogram", menu=histogram_menu)
@@ -103,6 +109,7 @@ class Interface(tk.Tk):
         menubar.add_cascade(label="Neighborhood Operations", menu=neighborhood_operations_menu)
         menubar.add_cascade(label="Dual Image Operations", menu=dual_operations_menu)
         menubar.add_cascade(label="LAB3", menu=morphology_menu)
+        menubar.add_cascade(label="Segmentation", menu=segmentation_menu)
 
         self.config(menu=menubar)
 
@@ -569,20 +576,21 @@ class Interface(tk.Tk):
         tk.OptionMenu(window, size_var, *kernel_sizes).pack()
 
         tk.Button(window, text="Apply", command=lambda: self.apply_morphology(
-            op_var.get(), shape_var.get(), self.border_mode, size_var.get())).pack(pady=10)
+            op_var.get(), shape_var.get(), self.border_mode.get(), size_var.get())).pack(pady=10)
 
     def apply_morphology(self, operation, shape, border, kernel_size):
         if self.active_window is None:
             messagebox.showwarning("Brak aktywnego obrazu", "Najpierw wczytaj obraz.")
             return
-
+        border_str = border
+        border_code = self.border_mode_map.get(border_str, cv2.BORDER_REFLECT)
         try:
             k = int(kernel_size[0])  # np. "3x3" → 3
 
             self.active_window.manager.apply_morphology(
                 operation=operation,
                 shape=shape,
-                border=border,
+                border=border_code,
                 kernel_size=k
             )
             self.active_window.display_image()
@@ -600,8 +608,9 @@ class Interface(tk.Tk):
             if not self.active_window.manager.is_binary():
                 messagebox.showwarning("Obraz niebinarny", "Szkieletyzacja wymaga obrazu binarnego (tylko 0 i 255).")
                 return
-
-            self.active_window.manager.skeletonize(self.border_mode)
+            border_str = self.border_mode.get()
+            border_code = self.border_mode_map.get(border_str, cv2.BORDER_REFLECT)
+            self.active_window.manager.skeletonize(border_code)
             self.update_lut_and_histogram()
             self.active_window.display_image()
 
@@ -615,6 +624,82 @@ class Interface(tk.Tk):
         self.active_window.manager.hough_transformation()
         self.update_lut_and_histogram()
         self.active_window.display_image()
+
+    def threshold_adaptive(self,method):
+        if self.active_window is None:
+            messagebox.showerror("Błąd", "Brak aktywnego obrazu.")
+            return
+        if method == "mean":
+            self.active_window.manager.threshold_adaptive(cv2.ADAPTIVE_THRESH_MEAN_C)
+        elif method == "gaussian":
+            self.active_window.manager.threshold_adaptive(cv2.ADAPTIVE_THRESH_GAUSSIAN_C)
+        else:
+            messagebox.showerror("Błąd", "niepoprawna metoda threshhold")
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def threshold_otsu(self):
+        if self.active_window is None:
+            messagebox.showerror("Błąd", "Brak aktywnego obrazu.")
+        self.active_window.manager.threshold_otsu()
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def open_manual_threshold_window(self):
+        if self.active_window is None:
+            messagebox.showerror("Błąd", "Brak aktywnego obrazu.")
+            return
+        original_image = self.active_window.manager.current.copy()
+
+        window = tk.Toplevel()
+        window.title("Manual Threshold")
+        reverse_var = tk.BooleanVar()
+        reverse_check = tk.Checkbutton(window, text="Reverse", variable=reverse_var)
+        reverse_check.pack(pady=5)
+        slider = tk.Scale(window, from_=0, to=255, orient=tk.HORIZONTAL, label="Threshold value")
+        slider.set(127)
+        slider.pack(padx=10, pady=5, fill='x')
+
+        def update_image(thresh_value):
+            try:
+                thresh_value = int(thresh_value)
+                self.active_window.manager.set_current(original_image)
+                if reverse_var.get():
+                    self.active_window.manager.threshold_manual_reverse(thresh_value)
+                else:
+                    self.active_window.manager.threshold_manual(thresh_value)
+
+            except Exception as e:
+                print("Błąd przy progowaniu:", e)
+            self.update_lut_and_histogram()
+            self.active_window.display_image()
+
+        slider.configure(command=update_image)
+
+        def on_reverse_toggle(*args):
+            update_image(slider.get())
+
+        reverse_var.trace_add("write", on_reverse_toggle)
+        button_frame = tk.Frame(window)
+        button_frame.pack(pady=10)
+
+        def close_and_restore():
+            self.active_window.manager.set_current(original_image)
+            window.destroy()
+            self.update_lut_and_histogram()
+            self.active_window.display_image()
+
+        def apply_and_close():
+            window.destroy()
+            self.update_lut_and_histogram()
+            self.active_window.display_image()
+
+        close_button = tk.Button(button_frame, text="Zamknij", command=close_and_restore)
+        close_button.pack(side=tk.LEFT, padx=5)
+
+        apply_button = tk.Button(button_frame, text="Zastosuj", command=apply_and_close)
+        apply_button.pack(side=tk.LEFT, padx=5)
+        update_image(127)
 
 class ImageWindow(tk.Toplevel):
     def __init__(self, master, path):
