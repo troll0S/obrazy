@@ -1,12 +1,12 @@
 import tkinter as tk
 from tkinter import filedialog
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw
 import cv2
 from image_manager import ImageManager
 from tkinter import messagebox
 import os
 import matplotlib.pyplot as plt
-import numpy as np
+
 
 
 class Interface(tk.Tk):
@@ -27,6 +27,9 @@ class Interface(tk.Tk):
             "wrap": cv2.BORDER_WRAP,
             "isolated": cv2.BORDER_ISOLATED
         }
+        self.rect_start = None
+        self.rect_end = None
+
 
     def create_menubar(self):
         menubar = tk.Menu(self)
@@ -100,6 +103,9 @@ class Interface(tk.Tk):
         segmentation_menu.add_command(label="Adaptive Threshold Mean", command=lambda: self.threshold_adaptive("mean"))
         segmentation_menu.add_command(label="Adaptive Threshold Gaussian", command=lambda: self.threshold_adaptive("gaussian"))
         segmentation_menu.add_command(label="Otsu Threshold", command=self.threshold_otsu)
+        segmentation_menu.add_command(label="Grab cut", command=self.activate_grabcut)
+        segmentation_menu.add_command(label="Watershed", command=self.watershed)
+        segmentation_menu.add_command(label="inpainting", command=self.inpainting)
 
 
         menubar.add_cascade(label="File", menu=file_menu)
@@ -701,6 +707,70 @@ class Interface(tk.Tk):
         apply_button.pack(side=tk.LEFT, padx=5)
         update_image(127)
 
+    def activate_grabcut(self):
+        if self.active_window is None:
+            messagebox.showwarning("Brak obrazu", "Najpierw załaduj obraz.")
+            return
+
+        label = self.active_window.img_label
+        label.bind("<ButtonPress-1>", self.start_rectangle)
+        label.bind("<B1-Motion>", self.draw_rectangle)
+        label.bind("<ButtonRelease-1>", self.finish_rectangle)
+        messagebox.showinfo("GrabCut", "Zaznacz prostokąt na obrazie, trzymając lewy przycisk myszy.")
+    def start_rectangle(self, event):
+        self.rect_start = (event.x, event.y)
+        self.rect_end = None
+
+    def draw_rectangle(self, event):
+        if self.rect_start:
+            x0, y0 = self.rect_start
+            x1, y1 = event.x, event.y
+            self.draw_temp_rectangle(x0, y0, x1, y1)
+
+    def finish_rectangle(self, event):
+        if not self.rect_start:
+            return
+
+        self.rect_end = (event.x, event.y)
+
+        if messagebox.askyesno("GrabCut", "Zastosować GrabCut na zaznaczonym obszarze?"):
+            self.apply_grabcut()
+        else:
+            self.active_window.display_image()  # Przywróć oryginalny obraz
+            self.rect_start = None
+            self.rect_end = None
+
+    def apply_grabcut(self):
+        if not self.rect_start or not self.rect_end:
+            messagebox.showerror("Błąd", "Niepoprawne zaznaczenie prostokąta.")
+            return
+
+        x0, y0 = self.rect_start
+        x1, y1 = self.rect_end
+        rect = (min(x0, x1), min(y0, y1), abs(x1 - x0), abs(y1 - y0))
+
+        self.active_window.manager.grabcut(rect)
+        self.update_lut_and_histogram()
+        self.active_window.display_image()
+
+    def draw_temp_rectangle(self, x0, y0, x1, y1):
+        # Pobierz aktualny obraz jako kopię
+        base_img = self.active_window.manager.get_display_image().copy()
+
+        # Narysuj prostokąt na obrazie
+        draw = ImageDraw.Draw(base_img)
+        draw.rectangle([x0, y0, x1, y1], outline="red", width=2)
+
+        # Zaktualizuj label w ImageWindow
+        self.active_window.tk_img = ImageTk.PhotoImage(base_img)
+        self.active_window.img_label.config(image=self.active_window.tk_img)
+
+    def watershed(self):
+        pass
+
+    def inpainting(self):
+        pass
+
 class ImageWindow(tk.Toplevel):
     def __init__(self, master, path):
         super().__init__(master)
@@ -710,6 +780,7 @@ class ImageWindow(tk.Toplevel):
 
         self.img_label = tk.Label(self)
         self.img_label.pack()
+
 
         self.bind("<FocusIn>", self.on_focus)
 
@@ -728,6 +799,7 @@ class ImageWindow(tk.Toplevel):
         if img is not None:
             self.tk_img = ImageTk.PhotoImage(img)
             self.img_label.config(image=self.tk_img)
+
 
     def create_window_menu(self):
         menu = tk.Menu(self)

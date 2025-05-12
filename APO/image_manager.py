@@ -1,4 +1,4 @@
-import tkinter
+
 
 import cv2
 import numpy as np
@@ -581,3 +581,23 @@ class ImageManager:
         result_image = cv2.adaptiveThreshold(self.current, 255, method,
                                                   cv2.THRESH_BINARY, block_size, C)
         self.set_current(result_image)
+
+    def grabcut(self, rect):
+        if self.current is None:
+            raise ValueError("Brak obrazu.")
+        mask = np.zeros(self.current.shape[:2], np.uint8)
+        bgdModel = np.zeros((1, 65), np.float64)
+        fgdModel = np.zeros((1, 65), np.float64)
+
+        x, y, w, h = rect
+        cv2.grabCut(self.current, mask, (x, y, w, h), bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
+
+        mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
+        result = self.current * mask2[:, :, np.newaxis]
+        self.set_current(result)
+
+    def watershed(self):
+        pass
+
+    def inpainting(self):
+        pass
