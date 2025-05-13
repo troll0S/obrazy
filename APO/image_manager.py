@@ -639,3 +639,50 @@ class ImageManager:
             return
         result = cv2.inpaint(self.current, mask, inpaintRadius=3, flags=cv2.INPAINT_TELEA)
         self.set_current(result)
+
+    def analize_image(self):
+        if self.current is None:
+            return[]
+        if not self.is_binary(self.current):
+            return[]
+
+        contours, _ = cv2.findContours(self.current, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        result = []
+        for contour in contours:
+            features = {}
+            M = cv2.moments(contour)
+            area = cv2.contourArea(contour)
+            perimeter = cv2.arcLength(contour, True)
+
+            if M["m00"] != 0:
+                cx = M["m10"] / M["m00"]
+                cy = M["m01"] / M["m00"]
+            else:
+                cx = cy = 0
+
+            x, y, w, h = cv2.boundingRect(contour)
+            aspect_ratio = float(w) / h
+            rect_area = w * h
+            extent = float(area) / rect_area if rect_area != 0 else 0
+
+            hull = cv2.convexHull(contour)
+            hull_area = cv2.contourArea(hull)
+            solidity = float(area) / hull_area if hull_area != 0 else 0
+
+            equi_diameter = np.sqrt(4 * area / np.pi)
+
+            features.update({
+                "cx": cx,
+                "cy": cy,
+                "m00": M["m00"],
+                "area": area,
+                "perimeter": perimeter,
+                "aspect_ratio": aspect_ratio,
+                "extent": extent,
+                "solidity": solidity,
+                "equivalent_diameter": equi_diameter
+            })
+
+            result.append(features)
+
+        return result

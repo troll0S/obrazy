@@ -37,6 +37,7 @@ class Interface(tk.Tk):
         file_menu = tk.Menu(menubar, tearoff=0)
         file_menu.add_command(label="Load Image", command=self.load_image)
         file_menu.add_command(label="Save Active Image", command=self.save_active_image)
+        file_menu.add_command(label="Save with RLE")
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.quit)
 
@@ -51,6 +52,7 @@ class Interface(tk.Tk):
         image_menu.add_command(label="RGB 2 3x Gray", command=self.rgb_to_3x_gray)
         image_menu.add_command(label="RGB 2 HSV", command=self.rgb_to_HSV)
         image_menu.add_command(label="RGB 2 Lab", command=self.rgb_to_lab)
+        image_menu.add_command(label="Analizuj obiekt",command=self.analize_image)
 
         one_point_menu = tk.Menu(menubar,tearoff=0)
         one_point_menu.add_command(label="negate",command=self.negate)
@@ -789,6 +791,33 @@ class Interface(tk.Tk):
         self.active_window.manager.inpainting(path)
         self.update_lut_and_histogram()
         self.active_window.display_image()
+
+    def analize_image(self):
+        if self.active_window is None:
+            messagebox.showwarning("Brak obrazu", "Najpierw załaduj obraz.")
+            return
+        data = self.active_window.manager.analize_image()
+        self.present_analize_data(data)
+
+    def present_analize_data(self,data):
+        window = tk.Toplevel(self)
+        window.title("Wyniki analizy obiektów")
+        headers = [
+            "Obiekt", "Moment m00", "Centroid (cx, cy)", "Pole", "Obwód",
+            "Aspect Ratio", "Extent", "Solidity", "Equivalent Diameter"
+        ]
+        for col, header in enumerate(headers):
+            tk.Label(window, text=header, font=("Arial", 10, "bold")).grid(row=0, column=col, padx=5, pady=5)
+        for row_idx, obj in enumerate(data, start=1):
+            tk.Label(window, text=str(row_idx)).grid(row=row_idx, column=0, padx=5, pady=2)
+            tk.Label(window, text=f"{obj['m00']:.2f}").grid(row=row_idx, column=1)
+            tk.Label(window, text=f"({obj['cx']:.1f}, {obj['cy']:.1f})").grid(row=row_idx, column=2)
+            tk.Label(window, text=f"{obj['area']:.2f}").grid(row=row_idx, column=3)
+            tk.Label(window, text=f"{obj['perimeter']:.2f}").grid(row=row_idx, column=4)
+            tk.Label(window, text=f"{obj['aspect_ratio']:.2f}").grid(row=row_idx, column=5)
+            tk.Label(window, text=f"{obj['extent']:.2f}").grid(row=row_idx, column=6)
+            tk.Label(window, text=f"{obj['solidity']:.2f}").grid(row=row_idx, column=7)
+            tk.Label(window, text=f"{obj['equivalent_diameter']:.2f}").grid(row=row_idx, column=8)
 
 class ImageWindow(tk.Toplevel):
     def __init__(self, master, path):
