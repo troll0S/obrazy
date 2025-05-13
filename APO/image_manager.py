@@ -180,7 +180,7 @@ class ImageManager:
             self.calc_lut()
         return self.lut_table
 
-    def normalize(self):
+    def normalize(self, target_min=0, target_max=255):
         if self.current is None or not self._is_grayscale:
             return
         self.calc_lut()
@@ -192,11 +192,11 @@ class ImageManager:
         self.lut = np.zeros(256, dtype=np.uint8)
         for i in range(256):
             if i < min_val:
-                self.lut[i] = 0
+                self.lut[i] = target_min
             elif i > max_val:
-                self.lut[i] = 255
+                self.lut[i] = target_max
             else:
-                self.lut[i] = ((i - min_val) * 255) // (max_val - min_val)
+                self.lut[i] = ((i - min_val) * (target_max - target_min)) // (max_val - min_val) + target_min
 
         self.apply_lut(self.lut)
         self.calc_lut()
@@ -686,3 +686,30 @@ class ImageManager:
             result.append(features)
 
         return result
+
+    def rle_compress(self):
+        if self.current is None or not self._is_grayscale:
+            return None
+        if len(self.current.shape) == 3 and self.current.shape[2] == 3:
+            self.set_current(cv2.cvtColor(self.current, cv2.COLOR_BGR2GRAY))
+        flat = self.current.flatten()
+        compressed = []
+        prev_pixel = flat[0]
+        count = 1
+        for pixel in flat[1:]:
+            if pixel == prev_pixel:
+                count += 1
+            else:
+                compressed.append((prev_pixel, count))
+                prev_pixel = pixel
+                count = 1
+        compressed.append((prev_pixel, count))
+        original_size = len(flat)
+        compressed_size = len(compressed) * 2
+        compression_ratio = original_size / compressed_size if compressed_size > 0 else 1
+        return {
+            "compressed_data": compressed,
+            "original_size": original_size,
+            "compressed_size": compressed_size,
+            "compression_ratio": compression_ratio
+        }

@@ -37,9 +37,12 @@ class Interface(tk.Tk):
         file_menu = tk.Menu(menubar, tearoff=0)
         file_menu.add_command(label="Load Image", command=self.load_image)
         file_menu.add_command(label="Save Active Image", command=self.save_active_image)
-        file_menu.add_command(label="Save with RLE")
+        file_menu.add_command(label="Show RLE compression ratio", command=self.show_RLE_compression_ratio)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.quit)
+
+        help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu.add_command(label="O autorze", command=self.show_author_info)
 
         histogram_menu = tk.Menu(menubar, tearoff=0)
         histogram_menu.add_command(label="show", command=self.show_histogram)
@@ -111,6 +114,7 @@ class Interface(tk.Tk):
 
 
         menubar.add_cascade(label="File", menu=file_menu)
+        menubar.add_cascade(label="Pomoc", menu=help_menu)
         menubar.add_cascade(label="Histogram", menu=histogram_menu)
         menubar.add_cascade(label="Image", menu=image_menu)
         menubar.add_cascade(label="One Point Operations",menu=one_point_menu)
@@ -167,6 +171,11 @@ class Interface(tk.Tk):
                 messagebox.showinfo("Sukces", f"Obraz zapisany jako: {os.path.basename(file_path)}")
             else:
                 messagebox.showerror("Błąd", "Nie udało się zapisać obrazu.")
+
+    def show_author_info(self):
+        messagebox.showinfo("o autorze",
+                            "aplikacja na projekt zaliczeniowy z APO\nAutor: Wojciech Jurek\nProwadzący: dr inż. "
+                            "Łukasz Roszkowiak\nAlgorytmy Przetwarzania Obrazów 2025\nWIT grupa ID: IO1")
 
     def rgb_to_gray(self):
         if self.active_window is None:
@@ -298,9 +307,34 @@ class Interface(tk.Tk):
         if not self.active_window.manager.is_grayscale():
             messagebox.showwarning("Błąd", "Normalizacja dostępna tylko dla obrazów w skali szarości.")
             return
-        self.active_window.manager.normalize()
-        self.update_lut_and_histogram()
-        self.active_window.display_image()
+
+        window = tk.Toplevel(self)
+        window.title("Zakres normalizacji")
+        tk.Label(window, text="Minimalna wartość (0-255):").grid(row=0, column=0, padx=10, pady=5)
+        min_entry = tk.Entry(window)
+        min_entry.grid(row=0, column=1, padx=10, pady=5)
+        min_entry.insert(0, "0")
+
+        tk.Label(window, text="Maksymalna wartość (0-255):").grid(row=1, column=0, padx=10, pady=5)
+        max_entry = tk.Entry(window)
+        max_entry.grid(row=1, column=1, padx=10, pady=5)
+        max_entry.insert(0, "255")
+        def apply_normalization():
+            try:
+                target_min = int(min_entry.get())
+                target_max = int(max_entry.get())
+                if not (0 <= target_min < target_max <= 255):
+                    raise ValueError
+                self.active_window.manager.normalize(target_min,target_max)
+                self.update_lut_and_histogram()
+                self.active_window.display_image()
+                window.destroy()
+            except ValueError:
+                messagebox.showerror("Błąd", "Wprowadź poprawny zakres: min < max, wartości 0–255.")
+        tk.Button(window, text="Zastosuj", command=apply_normalization).grid(row=2, columnspan=2, pady=10)
+
+
+
 
     def equalize(self):
         if self.active_window is None:
@@ -818,6 +852,22 @@ class Interface(tk.Tk):
             tk.Label(window, text=f"{obj['extent']:.2f}").grid(row=row_idx, column=6)
             tk.Label(window, text=f"{obj['solidity']:.2f}").grid(row=row_idx, column=7)
             tk.Label(window, text=f"{obj['equivalent_diameter']:.2f}").grid(row=row_idx, column=8)
+
+    def show_RLE_compression_ratio(self):
+        if self.active_window is None:
+            messagebox.showinfo("Brak aktywnego obrazu", "Nie wybrano aktywnego okna.")
+            return
+        result = self.active_window.manager.rle_compress()
+        if result is None:
+            messagebox.showerror("Błąd", "Brak danych do kompresji.")
+            return
+        ratio = result["compression_ratio"]
+        original = result["original_size"]
+        compressed = result["compressed_size"]
+        messagebox.showinfo("Kompresja RLE",
+                        f"Oryginalny rozmiar: {original} bajtów\n"
+                        f"Skompresowany: {compressed} bajtów\n"
+                        f"Stopień kompresji: {ratio:.2f}x")
 
 class ImageWindow(tk.Toplevel):
     def __init__(self, master, path):
