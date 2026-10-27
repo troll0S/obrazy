@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+
+# PyInstaller build output (publish the .exe in GitHub Releases instead)
+build/
+dist/
+*.spec
+
+# IDE
+.idea/
+.vscode/
+
+# Environment
+.venv/
+venv/
+.env
